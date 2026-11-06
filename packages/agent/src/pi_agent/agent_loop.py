@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import time
+from itertools import groupby, islice
 from typing import Any, AsyncGenerator
 
 from pi_ai import stream_simple as _default_stream_simple
@@ -187,6 +188,8 @@ async def _run_loop(
                     cancel_event,
                     ev_stream,
                     config.get_steering_messages,
+                    config.read_parallelism,
+                    config.tool_error_max_bytes,
                 )
                 tool_results.extend(execution["tool_results"])
                 steering_after_tools = execution.get("steering_messages")
@@ -333,88 +336,98 @@ async def _execute_tool_calls(
     cancel_event: asyncio.Event | None,
     ev_stream: EventStream[AgentEvent, list[AgentMessage]],
     get_steering_messages: Any | None = None,
+    read_parallelism: int = 1,
+    tool_error_max_bytes: int | None = None,
 ) -> dict[str, Any]:
-    """
-    Execute tool calls from an assistant message.
-    Mirrors executeToolCalls() in TypeScript.
-    """
-    tool_calls = [c for c in assistant_message.content if isinstance(c, ToolCall)]
+    """Run bounded batches of trusted parallel tools between serial calls."""
+    tool_calls = [part for part in assistant_message.content if isinstance(part, ToolCall)]
+    registered: dict[str, AgentTool] = {}
+    for tool in tools or []:
+        registered.setdefault(tool.name, tool)
+    parallel_names = {tool.name for tool in registered.values() if tool.parallel_safe}
     results: list[ToolResultMessage] = []
-    steering_messages: list[AgentMessage] | None = None
 
-    for index, tool_call in enumerate(tool_calls):
-        tool = next((t for t in (tools or []) if t.name == tool_call.name), None)
+    for parallel, calls in groupby(tool_calls, key=lambda call: call.name in parallel_names):
+        batch_size = read_parallelism if parallel else 1
+        while batch := list(islice(calls, batch_size)):
+            if len(batch) == 1:
+                call = batch[0]
+                batch_results = [await _execute_tool_call(
+                    call, registered.get(call.name), cancel_event, ev_stream, tool_error_max_bytes,
+                )]
+            else:
+                async with asyncio.TaskGroup() as group:
+                    tasks = [
+                        group.create_task(_execute_tool_call(
+                            call, registered[call.name], cancel_event, ev_stream, tool_error_max_bytes,
+                        ))
+                        for call in batch
+                    ]
+                batch_results = [task.result() for task in tasks]
 
-        ev_stream.push(AgentEventToolStart(
+            for result in batch_results:
+                ev_stream.push(AgentEventMessageStart(message=result))
+                ev_stream.push(AgentEventMessageEnd(message=result))
+                results.append(result)
+
+            if get_steering_messages:
+                steering = await get_steering_messages()
+                if steering:
+                    results.extend(_skip_tool_call(call, ev_stream) for call in tool_calls[len(results):])
+                    return {"tool_results": results, "steering_messages": steering}
+
+    return {"tool_results": results, "steering_messages": None}
+
+
+async def _execute_tool_call(
+    tool_call: ToolCall,
+    tool: AgentTool | None,
+    cancel_event: asyncio.Event | None,
+    ev_stream: EventStream[AgentEvent, list[AgentMessage]],
+    tool_error_max_bytes: int | None,
+) -> ToolResultMessage:
+    ev_stream.push(AgentEventToolStart(
+        tool_call_id=tool_call.id,
+        tool_name=tool_call.name,
+        args=tool_call.arguments,
+    ))
+
+    def on_update(partial_result: AgentToolResult) -> None:
+        ev_stream.push(AgentEventToolUpdate(
             tool_call_id=tool_call.id,
             tool_name=tool_call.name,
             args=tool_call.arguments,
+            partial_result=partial_result,
         ))
 
-        result: AgentToolResult
-        is_error = False
+    is_error = False
+    try:
+        if not tool:
+            raise ValueError(f"Tool {tool_call.name} not found")
+        validated_args = validate_tool_arguments(tool, tool_call)
+        result = await tool.execute(tool_call.id, validated_args, cancel_event, on_update)
+    except Exception as error:
+        message = str(error)
+        if tool_error_max_bytes is not None:
+            message = message.encode("utf-8")[:tool_error_max_bytes].decode("utf-8", errors="ignore")
+        result = AgentToolResult(content=[TextContent(type="text", text=message)], details={})
+        is_error = True
 
-        try:
-            if not tool:
-                raise ValueError(f"Tool {tool_call.name} not found")
-
-            # Build a Tool-compatible object for validation
-            from pi_ai.types import Tool as AiTool, ToolCall as AiToolCall
-            ai_tool = AiTool(
-                name=tool.name,
-                description=tool.description,
-                parameters=tool.parameters,
-            )
-            validated_args = validate_tool_arguments(ai_tool, tool_call)
-
-            def on_update(partial_result: AgentToolResult) -> None:
-                ev_stream.push(AgentEventToolUpdate(
-                    tool_call_id=tool_call.id,
-                    tool_name=tool_call.name,
-                    args=tool_call.arguments,
-                    partial_result=partial_result,
-                ))
-
-            result = await tool.execute(tool_call.id, validated_args, cancel_event, on_update)
-        except Exception as e:
-            result = AgentToolResult(
-                content=[TextContent(type="text", text=str(e))],
-                details={},
-            )
-            is_error = True
-
-        ev_stream.push(AgentEventToolEnd(
-            tool_call_id=tool_call.id,
-            tool_name=tool_call.name,
-            result=result,
-            is_error=is_error,
-        ))
-
-        tool_result_msg = ToolResultMessage(
-            role="toolResult",
-            tool_call_id=tool_call.id,
-            tool_name=tool_call.name,
-            content=result.content,
-            details=result.details,
-            is_error=is_error,
-            timestamp=int(time.time() * 1000),
-        )
-        results.append(tool_result_msg)
-        ev_stream.push(AgentEventMessageStart(message=tool_result_msg))
-        ev_stream.push(AgentEventMessageEnd(message=tool_result_msg))
-
-        # Check for steering messages after each tool execution
-        if get_steering_messages:
-            steering = await get_steering_messages()
-            if steering:
-                steering_messages = steering
-                # Skip remaining tool calls
-                remaining = tool_calls[index + 1:]
-                for skipped in remaining:
-                    results.append(_skip_tool_call(skipped, ev_stream))
-                break
-
-    return {"tool_results": results, "steering_messages": steering_messages}
+    ev_stream.push(AgentEventToolEnd(
+        tool_call_id=tool_call.id,
+        tool_name=tool_call.name,
+        result=result,
+        is_error=is_error,
+    ))
+    return ToolResultMessage(
+        role="toolResult",
+        tool_call_id=tool_call.id,
+        tool_name=tool_call.name,
+        content=result.content,
+        details=result.details,
+        is_error=is_error,
+        timestamp=int(time.time() * 1000),
+    )
 
 
 def _skip_tool_call(

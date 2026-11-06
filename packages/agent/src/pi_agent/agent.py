@@ -63,6 +63,8 @@ class AgentOptions:
         thinking_budgets: ThinkingBudgets | None = None,
         transport: Transport = "sse",
         max_retry_delay_ms: int | None = None,
+        read_parallelism: int = 1,
+        tool_error_max_bytes: int | None = None,
     ):
         self.initial_state = initial_state
         self.convert_to_llm = convert_to_llm
@@ -76,6 +78,8 @@ class AgentOptions:
         self.thinking_budgets = thinking_budgets
         self.transport = transport
         self.max_retry_delay_ms = max_retry_delay_ms
+        self.read_parallelism = read_parallelism
+        self.tool_error_max_bytes = tool_error_max_bytes
 
     @classmethod
     def from_dict(cls, opts_dict: dict[str, Any]) -> "AgentOptions":
@@ -125,6 +129,8 @@ class Agent:
         self._thinking_budgets: ThinkingBudgets | None = opts.thinking_budgets
         self._transport: Transport = opts.transport
         self._max_retry_delay_ms: int | None = opts.max_retry_delay_ms
+        self._read_parallelism = opts.read_parallelism
+        self._tool_error_max_bytes = opts.tool_error_max_bytes
 
         self._listeners: set[Callable[[AgentEvent], None]] = set()
         self._cancel_event: asyncio.Event | None = None
@@ -393,6 +399,8 @@ class Agent:
             on_payload=self._on_payload,
             get_steering_messages=get_steering,
             get_follow_up_messages=self._async_dequeue_follow_up,
+            read_parallelism=self._read_parallelism,
+            tool_error_max_bytes=self._tool_error_max_bytes,
         )
 
         partial: AgentMessage | None = None

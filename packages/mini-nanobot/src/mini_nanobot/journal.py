@@ -26,6 +26,14 @@ def digest(value) -> str:
     return hashlib.sha256(_encode(value)).hexdigest()
 
 
+def unique_tool_calls(message: AssistantMessage, known_ids) -> list[ToolCall]:
+    calls = [item for item in message.content if isinstance(item, ToolCall)]
+    ids = {call.id for call in calls}
+    if len(ids) != len(calls) or ids.intersection(known_ids):
+        raise ValueError("Duplicate tool call ID")
+    return calls
+
+
 def _seal(record: dict) -> dict:
     return {**record, "checksum": digest(record)}
 
@@ -56,7 +64,7 @@ class RunJournal:
 
     @classmethod
     @contextmanager
-    def open(cls, directory: Path, request: dict):
+    def open(cls, directory: Path, request: dict, *, tool_policy_version: int | None = None):
         directory.mkdir(parents=True, exist_ok=True)
         with (directory / "writer.lock").open("a+b") as lock:
             lock.seek(0)
@@ -65,9 +73,14 @@ class RunJournal:
             try:
                 journal._load()
                 if journal._state["request"] is None:
-                    journal.append("request", {**request, "run_id": uuid4().hex})
+                    initial = {**request, "run_id": uuid4().hex}
+                    if tool_policy_version is not None:
+                        initial["tool_policy_version"] = tool_policy_version
+                    journal.append("request", initial)
                 elif any(journal._state["request"].get(key) != value for key, value in request.items()):
                     raise JournalError("Request does not match the existing run")
+                if tool_policy_version is not None and not journal.uncertain_call_ids:
+                    journal._bind_tool_policy(tool_policy_version)
                 yield journal
             finally:
                 journal._closed = True
@@ -99,6 +112,16 @@ class RunJournal:
             raise JournalError("Run journal is closed")
         if self.uncertain_call_ids:
             raise JournalError("A write has an uncertain outcome")
+
+    def _bind_tool_policy(self, version: int) -> None:
+        existing = self._state["request"].get("tool_policy_version")
+        if existing == version:
+            return
+        if existing is not None:
+            raise JournalError("Run journal uses a different tool policy version")
+        if any(op["state"] == "succeeded" and op["read_only"] for op in self._state["operations"].values()):
+            raise JournalError("Legacy journal has read results without tool policy provenance")
+        self.append("tool_policy", {"version": version})
 
     def replay_stream(self, provider):
         reply_index = 0
@@ -204,14 +227,14 @@ class RunJournal:
                 self._state["request"] = data
                 return
             raise JournalError("Journal is missing its initial request")
+        if kind == "tool_policy" and "tool_policy_version" not in self._state["request"]:
+            self._state["request"] = {**self._state["request"], "tool_policy_version": data["version"]}
+            return
         if kind == "reply":
             message = AssistantMessage.model_validate(data["message"])
             if message.stop_reason not in {"toolUse", "stop", "length"}:
                 raise JournalError("Unexpected durable model stop reason")
-            calls = [item for item in message.content if isinstance(item, ToolCall)]
-            ids = {call.id for call in calls}
-            if len(ids) != len(calls) or ids.intersection(operations):
-                raise JournalError("Duplicate tool call ID")
+            calls = unique_tool_calls(message, operations)
             operations.update({call.id: {"state": "planned", "name": call.name} for call in calls})
             self._state["replies"].append(data["message"])
             return

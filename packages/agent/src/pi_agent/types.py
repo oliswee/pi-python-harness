@@ -74,6 +74,8 @@ class AgentLoopConfig(SimpleStreamOptions):
 
     # Returns follow-up messages after agent would stop
     get_follow_up_messages: Callable[[], Awaitable[list[AgentMessage]]] | None = None
+    read_parallelism: int = Field(default=1, ge=1)
+    tool_error_max_bytes: int | None = Field(default=None, ge=1)
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -95,6 +97,7 @@ class AgentTool(Tool):
     Mirrors AgentTool<TParameters> interface in TypeScript.
     """
     label: str
+    parallel_safe: bool = Field(default=False, exclude=True)
     execute: Callable[
         [str, dict[str, Any], asyncio.Event | None, AgentToolUpdateCallback | None],
         Awaitable["AgentToolResult"],
