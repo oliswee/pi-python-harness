@@ -37,11 +37,13 @@ class WorkspaceTools:
     def __init__(
         self, workspace: Path, policy: ToolPolicy, journal: RunJournal | None,
         require_context: Callable[[], None] | None = None,
+        *, record_evidence: bool = False,
     ) -> None:
         self.workspace = workspace
         self.policy = policy
         self.journal = journal
         self.require_context = require_context
+        self.record_evidence = record_evidence
         self.uncertain_call_ids: tuple[str, ...] = ()
 
     def registered(self) -> list[AgentTool]:
@@ -55,14 +57,15 @@ class WorkspaceTools:
         if self.uncertain_call_ids:
             raise RuntimeError("A write has an uncertain outcome")
 
-    def _authorize(self, arguments: dict[str, Any], *, read_only: bool) -> None:
+    def _authorize(self, arguments: dict[str, Any], *, read_only: bool) -> Path:
         if not read_only and not self.policy.allow_writes:
             raise PermissionError("Workspace writes are disabled")
         cwd = str(self.workspace)
         path = arguments["path"]
-        _require_allowed_path(resolve_to_cwd(path, cwd), self.workspace)
+        resolved = _require_allowed_path(resolve_to_cwd(path, cwd), self.workspace)
         if read_only:
-            _require_allowed_path(resolve_read_path(path, cwd), self.workspace)
+            return _require_allowed_path(resolve_read_path(path, cwd), self.workspace)
+        return resolved
 
     def _guard(self, tool: AgentTool, *, risk: ToolRisk) -> AgentTool:
         read_only = risk == "read_only"
@@ -85,7 +88,7 @@ class WorkspaceTools:
                     return _bound_output(saved)
 
             try:
-                self._authorize(arguments, read_only=read_only)
+                target = self._authorize(arguments, read_only=read_only)
             except (OSError, RuntimeError, ValueError) as error:
                 if journal is not None:
                     journal.append("denied", {"call_id": call_id, "error": str(error)})
@@ -110,6 +113,13 @@ class WorkspaceTools:
                     journal.append("failed", {"call_id": call_id, "error": message})
                 raise RuntimeError(message) from error
 
+            if self.record_evidence:
+                evidence = {
+                    "path": workspace_path_key(self.workspace, arguments["path"]), "file_id": _file_id(target),
+                }
+                result = result.model_copy(update={
+                    "details": {"workspace_evidence": evidence, "tool_details": result.details},
+                })
             if journal is not None:
                 journal.append("succeeded", {"call_id": call_id, "result": result.model_dump(mode="json")})
             return result
@@ -117,10 +127,24 @@ class WorkspaceTools:
         return tool.model_copy(update={"execute": execute, "parallel_safe": read_only})
 
 
-def _require_allowed_path(path: str, workspace: Path) -> None:
+def workspace_path_key(workspace: Path, path: str) -> str:
+    return os.path.normcase(os.path.normpath(resolve_to_cwd(path, str(workspace))))
+
+
+def _file_id(path: Path) -> list[int] | None:
+    try:
+        info = path.stat()
+    except OSError:
+        return None
+    return [info.st_dev, info.st_ino] if info.st_ino else None
+
+
+def _require_allowed_path(path: str, workspace: Path) -> Path:
     target = Path(path)
     _check_path(target, workspace)
-    _check_path(target.resolve(), workspace)
+    resolved = target.resolve()
+    _check_path(resolved, workspace)
+    return resolved
 
 
 def _check_path(target: Path, workspace: Path) -> None:

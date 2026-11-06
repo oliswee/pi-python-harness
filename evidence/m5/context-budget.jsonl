@@ -1,0 +1,4 @@
+{"event_type":"context_full","model_id":"claude-3-5-sonnet-20241022","input_tokens_est":1316,"output_tokens_est":512,"before_input_tokens_est":null}
+{"event_type":"summary_request","model_id":"claude-3-5-sonnet-20241022","input_tokens_est":589,"output_tokens_est":512,"before_input_tokens_est":null}
+{"event_type":"context_compacted","model_id":"claude-3-5-sonnet-20241022","input_tokens_est":1756,"output_tokens_est":512,"before_input_tokens_est":13226}
+{"event_type":"context_reused","model_id":"claude-3-5-sonnet-20241022","input_tokens_est":2198,"output_tokens_est":512,"before_input_tokens_est":13668}

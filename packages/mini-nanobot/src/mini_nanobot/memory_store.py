@@ -177,8 +177,14 @@ class MemoryStore:
             yield [_record(row) for row in rows]
 
     def require_current(self, scope: str, refs: set[MemoryRef]) -> None:
+        with self.guard_current(scope, refs):
+            pass
+
+    @contextmanager
+    def guard_current(self, scope: str, refs: set[MemoryRef]):
         with self._transaction() as conn:
             self._require_current(conn, scope, refs, _now())
+            yield
 
     def _require_current(self, conn, scope: str, refs: set[MemoryRef], now: str) -> None:
         for ref in refs:

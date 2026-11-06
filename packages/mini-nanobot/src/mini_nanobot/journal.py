@@ -104,6 +104,10 @@ class RunJournal:
     def memory_refs(self) -> set[MemoryRef]:
         return {MemoryRef(*item) for item in self._state["request"].get("memory_refs", [])}
 
+    @property
+    def active_compaction(self) -> dict | None:
+        return self._state["request"].get("active_compaction")
+
     def record_memory_refs(self, refs: set[MemoryRef]) -> None:
         self.append("memory_recalled", {"refs": [[ref.memory_id, ref.revision] for ref in sorted(refs)]})
 
@@ -243,6 +247,9 @@ class RunJournal:
             refs = self._state["request"].get("memory_refs", []) + data["refs"]
             self._state["request"] = {**self._state["request"], "memory_refs": refs}
             return
+        if kind in {"compaction_staged", "compaction_committed"}:
+            self._apply_compaction(kind, data)
+            return
         if kind == "reply":
             message = AssistantMessage.model_validate(data["message"])
             if message.stop_reason not in {"toolUse", "stop", "length"}:
@@ -251,7 +258,9 @@ class RunJournal:
             operations.update({call.id: {"state": "planned", "name": call.name} for call in calls})
             self._state["replies"].append(data["message"])
             return
-        if kind == "finished" and data["status"] in {"ok", "error", "aborted", "uncertain", "memory_changed"}:
+        if kind == "finished" and data["status"] in {
+            "ok", "error", "aborted", "uncertain", "memory_changed", "context_limit",
+        }:
             if data["state_checksum"] == digest(self._state):
                 return
             raise JournalError("Finished record does not match journal state")
@@ -276,6 +285,24 @@ class RunJournal:
                 op.update(state=kind, error=data["error"])
                 return
         raise JournalError(f"Invalid journal transition: {kind}")
+
+    def _apply_compaction(self, kind: str, data: dict) -> None:
+        request = self._state["request"]
+        if request.get("context_policy") is None:
+            raise JournalError("Compaction requires a bound context policy")
+        if kind == "compaction_staged":
+            view = data["view"]
+            current = self.active_compaction
+            if view["version"] != (current["version"] if current is not None else 0) + 1:
+                raise JournalError("Invalid compaction version")
+            self._state["request"] = {**request, "staged_compaction": view}
+            return
+        staged = request.get("staged_compaction")
+        if staged is None or digest(staged) != data["view_checksum"]:
+            raise JournalError("Compaction commit does not match the staged view")
+        updated = {**request, "active_compaction": staged}
+        updated.pop("staged_compaction")
+        self._state["request"] = updated
 
     def _load_checkpoint(self, records: list[dict]) -> int:
         try:

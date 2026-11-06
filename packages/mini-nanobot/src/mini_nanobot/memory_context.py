@@ -21,6 +21,9 @@ class RunMemory:
     def require_current(self) -> None:
         self.memory.store.require_current(self.memory.scope, self.refs)
 
+    def guard_current(self):
+        return self.memory.store.guard_current(self.memory.scope, self.refs)
+
     def current(self) -> bool:
         try:
             self.require_current()

@@ -55,6 +55,12 @@ class RunTrace:
             for record in self._records:
                 output.write(json.dumps(record) + "\n")
 
+    def budget(self, event_type: str, input_tokens: int, reserve: int, before: int | None = None) -> None:
+        self._record(event_type, "error" if event_type == "context_blocked" else "ok")
+        self._records[-1].update({
+            "input_tokens_est": input_tokens, "output_tokens_est": reserve, "before_input_tokens_est": before,
+        })
+
     def _record(
         self,
         event_type: str,
