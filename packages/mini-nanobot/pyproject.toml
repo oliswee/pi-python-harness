@@ -1,0 +1,15 @@
+[project]
+name = "mini-nanobot"
+version = "0.1.0"
+description = "Reliability harness for the Python Pi coding agent"
+requires-python = ">=3.11,<3.14"
+dependencies = ["pi-agent", "pi-ai", "pi-coding-agent"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+pi-agent = { workspace = true }
+pi-ai = { workspace = true }
+pi-coding-agent = { workspace = true }

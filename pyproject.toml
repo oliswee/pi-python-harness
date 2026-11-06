@@ -13,7 +13,7 @@ dev = [
 ]
 
 [tool.uv.workspace]
-members = ["packages/ai", "packages/agent", "packages/coding-agent", "packages/tui"]
+members = ["packages/ai", "packages/agent", "packages/coding-agent", "packages/mini-nanobot", "packages/tui"]
 
 [tool.ruff]
 line-length = 120
@@ -31,4 +31,5 @@ testpaths = [
     "packages/agent/tests",
     "packages/coding-agent/tests",
     "packages/tui/tests",
+    "tests/e2e",
 ]

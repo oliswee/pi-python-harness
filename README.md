@@ -1,5 +1,7 @@
 # pi-mono-python
 
+Mini-Nanobot extends this Python Pi baseline. See the [M1 baseline audit](docs/baseline-gap-audit.md) for the pinned revision and offline smoke test.
+
 > Python port of the [pi-mono](../pi-mono) TypeScript monorepo — four packages with aligned code, logic, algorithms, and folder structure.
 >
 > **[中文 README →](README_CN.md)**
