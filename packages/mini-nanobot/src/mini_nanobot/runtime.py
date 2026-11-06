@@ -11,10 +11,12 @@ from pi_agent.types import StreamFn
 from pi_ai.types import AssistantMessage, EventDone, EventError, Model, TextContent
 
 from .journal import RunJournal, digest, unique_tool_calls
+from .memory_context import RunMemory
+from .memory_store import MemoryScope
 from .trace import RunTrace
 from .workspace_tools import TOOL_POLICY_VERSION, ToolPolicy, WorkspaceTools
 
-RunStatus = Literal["ok", "error", "aborted", "uncertain"]
+RunStatus = Literal["ok", "error", "aborted", "uncertain", "memory_changed"]
 
 
 @dataclass(frozen=True)
@@ -35,21 +37,27 @@ async def run(
     stream_fn: StreamFn,
     state_dir: Path | None = None,
     tool_policy: ToolPolicy | None = None,
+    memory: MemoryScope | None = None,
 ) -> RunResult:
     """Run one prompt, reopening the same logical run when state_dir is supplied."""
     workspace = workspace.resolve(strict=True)
     if not workspace.is_dir():
         raise NotADirectoryError(workspace)
+    if memory is not None and memory.store.path.resolve().is_relative_to(workspace):
+        raise ValueError("Memory database must be outside the tool workspace")
 
     policy = tool_policy if tool_policy is not None else ToolPolicy()
     if state_dir is None:
-        return await _run(prompt, workspace, trace_dir, model, stream_fn, policy)
+        return await _run(prompt, workspace, trace_dir, model, stream_fn, policy, memory)
     state_dir = state_dir.resolve()
     if state_dir.is_relative_to(workspace):
         raise ValueError("Durable state directory must be outside the tool workspace")
-    request = {"prompt": digest(prompt), "workspace": str(workspace), "model": digest(model.model_dump(mode="json"))}
+    request = {
+        "prompt": digest(prompt), "workspace": str(workspace), "model": digest(model.model_dump(mode="json")),
+        "memory": memory.binding() if memory is not None else None,
+    }
     with RunJournal.open(state_dir, request, tool_policy_version=TOOL_POLICY_VERSION) as journal:
-        return await _run(prompt, workspace, trace_dir, model, stream_fn, policy, journal)
+        return await _run(prompt, workspace, trace_dir, model, stream_fn, policy, memory, journal)
 
 
 async def _run(
@@ -59,6 +67,7 @@ async def _run(
     model: Model,
     stream_fn: StreamFn,
     policy: ToolPolicy,
+    memory: MemoryScope | None,
     journal: RunJournal | None = None,
 ) -> RunResult:
     trace = RunTrace(trace_dir, model.id, journal.run_id if journal else None)
@@ -66,7 +75,14 @@ async def _run(
         trace.finish("uncertain", "uncertain_write")
         return RunResult(trace.run_id, "uncertain", "", trace.path, journal.uncertain_call_ids)
 
-    tools = WorkspaceTools(workspace, policy, journal)
+    run_memory = RunMemory(memory, journal) if memory is not None else None
+    if run_memory is not None and not run_memory.current():
+        trace.finish("memory_changed", "stale_memory")
+        return RunResult(trace.run_id, "memory_changed", "", trace.path)
+
+    tools = WorkspaceTools(workspace, policy, journal, run_memory.require_current if run_memory else None)
+    if run_memory is not None:
+        stream_fn = run_memory.wrap(stream_fn)
     stream = _guard_stream(stream_fn, tools.check_active, track_call_ids=journal is None)
     if journal is not None:
         stream = journal.replay_stream(stream)
@@ -109,6 +125,8 @@ async def _run(
         uncertain = journal.uncertain_call_ids
     if uncertain:
         status, error_category, text = "uncertain", "uncertain_write", ""
+    elif run_memory is not None and not run_memory.current():
+        status, error_category, text = "memory_changed", "stale_memory", ""
     if journal is not None:
         journal.finish(status)
         journal.save_checkpoint()

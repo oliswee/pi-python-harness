@@ -11,6 +11,8 @@ from uuid import uuid4
 from pi_agent.types import AgentToolResult
 from pi_ai.types import AssistantMessage, EventDone, EventError, ToolCall
 
+from .memory_store import MemoryRef
+
 VERSION = 1
 
 
@@ -97,6 +99,13 @@ class RunJournal:
     @property
     def run_id(self) -> str:
         return self._state["request"]["run_id"]
+
+    @property
+    def memory_refs(self) -> set[MemoryRef]:
+        return {MemoryRef(*item) for item in self._state["request"].get("memory_refs", [])}
+
+    def record_memory_refs(self, refs: set[MemoryRef]) -> None:
+        self.append("memory_recalled", {"refs": [[ref.memory_id, ref.revision] for ref in sorted(refs)]})
 
     @property
     def uncertain_call_ids(self) -> tuple[str, ...]:
@@ -230,6 +239,10 @@ class RunJournal:
         if kind == "tool_policy" and "tool_policy_version" not in self._state["request"]:
             self._state["request"] = {**self._state["request"], "tool_policy_version": data["version"]}
             return
+        if kind == "memory_recalled" and self._state["request"].get("memory") is not None:
+            refs = self._state["request"].get("memory_refs", []) + data["refs"]
+            self._state["request"] = {**self._state["request"], "memory_refs": refs}
+            return
         if kind == "reply":
             message = AssistantMessage.model_validate(data["message"])
             if message.stop_reason not in {"toolUse", "stop", "length"}:
@@ -238,7 +251,7 @@ class RunJournal:
             operations.update({call.id: {"state": "planned", "name": call.name} for call in calls})
             self._state["replies"].append(data["message"])
             return
-        if kind == "finished" and data["status"] in {"ok", "error", "aborted", "uncertain"}:
+        if kind == "finished" and data["status"] in {"ok", "error", "aborted", "uncertain", "memory_changed"}:
             if data["state_checksum"] == digest(self._state):
                 return
             raise JournalError("Finished record does not match journal state")

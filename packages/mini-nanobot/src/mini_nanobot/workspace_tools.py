@@ -5,7 +5,7 @@ import math
 import os
 from dataclasses import dataclass
 from pathlib import Path, PureWindowsPath
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from pi_agent.types import AgentTool, AgentToolResult, AgentToolUpdateCallback
 from pi_ai.types import ImageContent, TextContent
@@ -34,10 +34,14 @@ class ToolPolicy:
 
 
 class WorkspaceTools:
-    def __init__(self, workspace: Path, policy: ToolPolicy, journal: RunJournal | None) -> None:
+    def __init__(
+        self, workspace: Path, policy: ToolPolicy, journal: RunJournal | None,
+        require_context: Callable[[], None] | None = None,
+    ) -> None:
         self.workspace = workspace
         self.policy = policy
         self.journal = journal
+        self.require_context = require_context
         self.uncertain_call_ids: tuple[str, ...] = ()
 
     def registered(self) -> list[AgentTool]:
@@ -73,6 +77,8 @@ class WorkspaceTools:
             self.check_active()
             if cancel_event and cancel_event.is_set():
                 raise RuntimeError("Operation aborted")
+            if self.require_context is not None:
+                self.require_context()
             if journal is not None:
                 saved = journal.saved_result(call_id, tool.name)
                 if saved is not None:
