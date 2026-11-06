@@ -12,11 +12,12 @@ from pi_agent.types import AgentEvent
 class RunTrace:
     """Project Pi events onto an allowlist of diagnostic metadata."""
 
-    def __init__(self, directory: Path, model_id: str) -> None:
+    def __init__(self, directory: Path, model_id: str, run_id: str | None = None) -> None:
         directory.mkdir(parents=True, exist_ok=True)
-        self.run_id = uuid4().hex
-        self.session_id = uuid4().hex
-        self.path = directory / f"{self.run_id}.jsonl"
+        attempt_id = uuid4().hex
+        self.run_id = run_id or attempt_id
+        self.session_id = run_id or uuid4().hex
+        self.path = directory / f"{attempt_id}.jsonl"
         self._model_id = model_id
         self._turn = 0
         self._step = 0
