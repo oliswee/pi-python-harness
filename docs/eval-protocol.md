@@ -12,6 +12,8 @@ Use fresh output paths. Keep the run output private unless you know the fixture 
 
 Case success means every registered verifier passed. Tool pairing counts come from attempt trace events. A replayed event pair can describe returning a cached result. The filesystem and journal assertions are the evidence for actual side effects. For crash windows, each fixture deliberately terminates a child and then verifies a fresh process against the same state. The trace can be absent for the killed attempt.
 
+The frozen Windows run passed **12/12 cases in each of three trials**, with 102 tool start events, 102 result events, and zero unpaired events in the captured traces. The separate ablation run verified all 24 observations across three pairs for each of four controls. The revision of each run is recorded in its report. [Case report](../evidence/m6/report.json) · [Paired controls](../evidence/m6/ablations.json) · [Trial artifact archive](../evidence/m6/trial-artifacts.zip)
+
 ## Paired controls
 
 | Feature | On | Off | Verifier |

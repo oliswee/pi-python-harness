@@ -22,7 +22,7 @@ uv export --locked --all-packages --no-dev --format cyclonedx1.5 --output-file r
 
 ## Verification gates
 
-- The workflow installs from the lock in uv copy mode and runs Pi CLI help, the core E2E suite, and an evaluation-runner smoke test on Windows and Ubuntu. Copy mode also works across cache and workspace volumes that disallow hardlinks. Hosted status becomes available when the workflow runs on GitHub.
-- The broad inherited offline suite has 18 known upstream failures documented in the [M1 audit](baseline-gap-audit.md). The CI job selects the Mini-Nanobot and Pi Agent suites.
+- The workflow installs from the lock in uv copy mode and runs Pi CLI help, the core E2E suite, and an evaluation-runner smoke test on Windows and Ubuntu. A fresh Windows clone passed locked installation, CLI help, all 73 focused tests, and both evaluation smoke cases. An earlier installation attempt hit a Windows cloud-filesystem hardlink error, which copy mode avoided. Hosted status becomes available when the workflow runs on GitHub. [Windows verification record](../evidence/m7/verification.json)
+- The broad inherited offline suite had 651 passes and the same 18 known upstream failures documented in the [M1 audit](baseline-gap-audit.md). The CI job selects the Mini-Nanobot and Pi Agent suites.
 - M4's eight offline request checks are reproducible. Eight successful live probes require an authorized Gemini credential and a usable model from the pinned Pi registry.
 - Distribution depends on resolving the Python port licensing gap. The [evidence ledger](evidence-ledger.md) distinguishes offline claims, measurements, and outstanding gates.

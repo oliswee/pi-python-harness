@@ -1,0 +1,589 @@
+{
+  "revision": "9a8112dca2dff6273f0f981b1263b1fea259815a",
+  "dirty": false,
+  "manifest_sha256": "f7f4c714260517e667b12cba2e10d9df3d03efdee450b3e6288c737dd3ce913e",
+  "lock_sha256": "d2bd10418ecc4fbcf14df5cf3cf4b5cb9cec4f05dda391928ca84c72c358e623",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.13.13",
+  "provider": "deterministic fixture",
+  "trials": 3,
+  "case_ids": [
+    "B01",
+    "B02",
+    "B03",
+    "B04",
+    "B05",
+    "B06",
+    "B07",
+    "B08",
+    "B09",
+    "B10",
+    "B11",
+    "B12"
+  ],
+  "passed_cases": 12,
+  "outcomes": {
+    "passed": 36
+  },
+  "worker_errors": [],
+  "results": [
+    {
+      "id": "B01",
+      "trial": 1,
+      "status": "passed",
+      "duration_s": 0.018772,
+      "tool_starts": 1,
+      "tool_results": 1,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-01/6d5d36ced2375ebf.json"
+      ]
+    },
+    {
+      "id": "B02",
+      "trial": 1,
+      "status": "passed",
+      "duration_s": 0.019083,
+      "tool_starts": 2,
+      "tool_results": 2,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-01/f6baf268bb043559.json"
+      ]
+    },
+    {
+      "id": "B03",
+      "trial": 1,
+      "status": "passed",
+      "duration_s": 25.441759,
+      "tool_starts": 3,
+      "tool_results": 3,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 3
+      },
+      "artifacts": [
+        "trial-01/360f2247ae117a9a.json",
+        "trial-01/190e53f535c02830.json",
+        "trial-01/2b532ab628289404.json"
+      ]
+    },
+    {
+      "id": "B04",
+      "trial": 1,
+      "status": "passed",
+      "duration_s": 7.83495,
+      "tool_starts": 0,
+      "tool_results": 0,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "uncertain": 1
+      },
+      "artifacts": [
+        "trial-01/9224993c0eec53e3.json"
+      ]
+    },
+    {
+      "id": "B05",
+      "trial": 1,
+      "status": "passed",
+      "duration_s": 0.037095,
+      "tool_starts": 7,
+      "tool_results": 7,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-01/478a871a49038d57.json"
+      ]
+    },
+    {
+      "id": "B06",
+      "trial": 1,
+      "status": "passed",
+      "duration_s": 0.165851,
+      "tool_starts": 7,
+      "tool_results": 7,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-01/cd2124b137c91366.json"
+      ]
+    },
+    {
+      "id": "B07",
+      "trial": 1,
+      "status": "passed",
+      "duration_s": 0.230883,
+      "tool_starts": 0,
+      "tool_results": 0,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "memory_changed": 1,
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-01/083c3a0d41f6116a.json",
+        "trial-01/31bdb572313a2824.json"
+      ]
+    },
+    {
+      "id": "B08",
+      "trial": 1,
+      "status": "passed",
+      "duration_s": 0.181177,
+      "tool_starts": 0,
+      "tool_results": 0,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 9
+      },
+      "artifacts": [
+        "trial-01/8186838944cc792e.json"
+      ]
+    },
+    {
+      "id": "B09",
+      "trial": 1,
+      "status": "passed",
+      "duration_s": 0.118608,
+      "tool_starts": 3,
+      "tool_results": 3,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-01/4ef49e5587270d67.json"
+      ]
+    },
+    {
+      "id": "B10",
+      "trial": 1,
+      "status": "passed",
+      "duration_s": 0.088403,
+      "tool_starts": 4,
+      "tool_results": 4,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 2
+      },
+      "artifacts": [
+        "trial-01/18a98e80f4599d3a.json",
+        "trial-01/6def8fff703c5f92.json"
+      ]
+    },
+    {
+      "id": "B11",
+      "trial": 1,
+      "status": "passed",
+      "duration_s": 0.069134,
+      "tool_starts": 4,
+      "tool_results": 4,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 2
+      },
+      "artifacts": [
+        "trial-01/c4d32b951594f634.json",
+        "trial-01/c0c0e09fe07a917a.json"
+      ]
+    },
+    {
+      "id": "B12",
+      "trial": 1,
+      "status": "passed",
+      "duration_s": 0.104267,
+      "tool_starts": 3,
+      "tool_results": 3,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "context_limit": 1
+      },
+      "artifacts": [
+        "trial-01/c08856099a66b8a8.json"
+      ]
+    },
+    {
+      "id": "B01",
+      "trial": 2,
+      "status": "passed",
+      "duration_s": 0.015749,
+      "tool_starts": 1,
+      "tool_results": 1,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-02/6d5d36ced2375ebf.json"
+      ]
+    },
+    {
+      "id": "B02",
+      "trial": 2,
+      "status": "passed",
+      "duration_s": 0.018139,
+      "tool_starts": 2,
+      "tool_results": 2,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-02/f6baf268bb043559.json"
+      ]
+    },
+    {
+      "id": "B03",
+      "trial": 2,
+      "status": "passed",
+      "duration_s": 23.630808,
+      "tool_starts": 3,
+      "tool_results": 3,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 3
+      },
+      "artifacts": [
+        "trial-02/360f2247ae117a9a.json",
+        "trial-02/190e53f535c02830.json",
+        "trial-02/2b532ab628289404.json"
+      ]
+    },
+    {
+      "id": "B04",
+      "trial": 2,
+      "status": "passed",
+      "duration_s": 8.366211,
+      "tool_starts": 0,
+      "tool_results": 0,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "uncertain": 1
+      },
+      "artifacts": [
+        "trial-02/9224993c0eec53e3.json"
+      ]
+    },
+    {
+      "id": "B05",
+      "trial": 2,
+      "status": "passed",
+      "duration_s": 0.035369,
+      "tool_starts": 7,
+      "tool_results": 7,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-02/478a871a49038d57.json"
+      ]
+    },
+    {
+      "id": "B06",
+      "trial": 2,
+      "status": "passed",
+      "duration_s": 0.148542,
+      "tool_starts": 7,
+      "tool_results": 7,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-02/cd2124b137c91366.json"
+      ]
+    },
+    {
+      "id": "B07",
+      "trial": 2,
+      "status": "passed",
+      "duration_s": 0.203019,
+      "tool_starts": 0,
+      "tool_results": 0,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1,
+        "memory_changed": 1
+      },
+      "artifacts": [
+        "trial-02/083c3a0d41f6116a.json",
+        "trial-02/31bdb572313a2824.json"
+      ]
+    },
+    {
+      "id": "B08",
+      "trial": 2,
+      "status": "passed",
+      "duration_s": 0.153853,
+      "tool_starts": 0,
+      "tool_results": 0,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 9
+      },
+      "artifacts": [
+        "trial-02/8186838944cc792e.json"
+      ]
+    },
+    {
+      "id": "B09",
+      "trial": 2,
+      "status": "passed",
+      "duration_s": 0.104908,
+      "tool_starts": 3,
+      "tool_results": 3,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-02/4ef49e5587270d67.json"
+      ]
+    },
+    {
+      "id": "B10",
+      "trial": 2,
+      "status": "passed",
+      "duration_s": 0.08096,
+      "tool_starts": 4,
+      "tool_results": 4,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 2
+      },
+      "artifacts": [
+        "trial-02/18a98e80f4599d3a.json",
+        "trial-02/6def8fff703c5f92.json"
+      ]
+    },
+    {
+      "id": "B11",
+      "trial": 2,
+      "status": "passed",
+      "duration_s": 0.060729,
+      "tool_starts": 4,
+      "tool_results": 4,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 2
+      },
+      "artifacts": [
+        "trial-02/c4d32b951594f634.json",
+        "trial-02/c0c0e09fe07a917a.json"
+      ]
+    },
+    {
+      "id": "B12",
+      "trial": 2,
+      "status": "passed",
+      "duration_s": 0.110712,
+      "tool_starts": 3,
+      "tool_results": 3,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "context_limit": 1
+      },
+      "artifacts": [
+        "trial-02/c08856099a66b8a8.json"
+      ]
+    },
+    {
+      "id": "B01",
+      "trial": 3,
+      "status": "passed",
+      "duration_s": 0.017526,
+      "tool_starts": 1,
+      "tool_results": 1,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-03/6d5d36ced2375ebf.json"
+      ]
+    },
+    {
+      "id": "B02",
+      "trial": 3,
+      "status": "passed",
+      "duration_s": 0.018143,
+      "tool_starts": 2,
+      "tool_results": 2,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-03/f6baf268bb043559.json"
+      ]
+    },
+    {
+      "id": "B03",
+      "trial": 3,
+      "status": "passed",
+      "duration_s": 24.742327,
+      "tool_starts": 3,
+      "tool_results": 3,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 3
+      },
+      "artifacts": [
+        "trial-03/360f2247ae117a9a.json",
+        "trial-03/190e53f535c02830.json",
+        "trial-03/2b532ab628289404.json"
+      ]
+    },
+    {
+      "id": "B04",
+      "trial": 3,
+      "status": "passed",
+      "duration_s": 7.888166,
+      "tool_starts": 0,
+      "tool_results": 0,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "uncertain": 1
+      },
+      "artifacts": [
+        "trial-03/9224993c0eec53e3.json"
+      ]
+    },
+    {
+      "id": "B05",
+      "trial": 3,
+      "status": "passed",
+      "duration_s": 0.036773,
+      "tool_starts": 7,
+      "tool_results": 7,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-03/478a871a49038d57.json"
+      ]
+    },
+    {
+      "id": "B06",
+      "trial": 3,
+      "status": "passed",
+      "duration_s": 0.146863,
+      "tool_starts": 7,
+      "tool_results": 7,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-03/cd2124b137c91366.json"
+      ]
+    },
+    {
+      "id": "B07",
+      "trial": 3,
+      "status": "passed",
+      "duration_s": 0.197806,
+      "tool_starts": 0,
+      "tool_results": 0,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1,
+        "memory_changed": 1
+      },
+      "artifacts": [
+        "trial-03/083c3a0d41f6116a.json",
+        "trial-03/31bdb572313a2824.json"
+      ]
+    },
+    {
+      "id": "B08",
+      "trial": 3,
+      "status": "passed",
+      "duration_s": 0.147328,
+      "tool_starts": 0,
+      "tool_results": 0,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 9
+      },
+      "artifacts": [
+        "trial-03/8186838944cc792e.json"
+      ]
+    },
+    {
+      "id": "B09",
+      "trial": 3,
+      "status": "passed",
+      "duration_s": 0.108968,
+      "tool_starts": 3,
+      "tool_results": 3,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 1
+      },
+      "artifacts": [
+        "trial-03/4ef49e5587270d67.json"
+      ]
+    },
+    {
+      "id": "B10",
+      "trial": 3,
+      "status": "passed",
+      "duration_s": 0.079516,
+      "tool_starts": 4,
+      "tool_results": 4,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 2
+      },
+      "artifacts": [
+        "trial-03/18a98e80f4599d3a.json",
+        "trial-03/6def8fff703c5f92.json"
+      ]
+    },
+    {
+      "id": "B11",
+      "trial": 3,
+      "status": "passed",
+      "duration_s": 0.057801,
+      "tool_starts": 4,
+      "tool_results": 4,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "ok": 2
+      },
+      "artifacts": [
+        "trial-03/c4d32b951594f634.json",
+        "trial-03/c0c0e09fe07a917a.json"
+      ]
+    },
+    {
+      "id": "B12",
+      "trial": 3,
+      "status": "passed",
+      "duration_s": 0.095491,
+      "tool_starts": 3,
+      "tool_results": 3,
+      "unpaired_events": 0,
+      "terminal_statuses": {
+        "context_limit": 1
+      },
+      "artifacts": [
+        "trial-03/c08856099a66b8a8.json"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "fresh_checkout_revision": "9636826cf15b503a21f984b08f4c421ea95a5c38",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python": "3.13.13",
+  "uv": "0.13.0",
+  "locked_install": {
+    "link_mode": "copy",
+    "status": "passed"
+  },
+  "pi_cli_help": "passed",
+  "focused_tests": {
+    "passed": 73
+  },
+  "evaluation_smoke": {
+    "passed_cases": 2,
+    "trials": 1,
+    "case_ids": [
+      "B01",
+      "B09"
+    ]
+  },
+  "broad_offline_suite": {
+    "revision": "9a8112dca2dff6273f0f981b1263b1fea259815a",
+    "passed": 651,
+    "failed": 18,
+    "matches_m5_failure_ids": true,
+    "failure_ids": [
+      "packages/ai/tests/test_providers.py::test_validate_tool_arguments_missing_required",
+      "packages/coding-agent/tests/test_agent_session.py::test_agent_session_prompt",
+      "packages/coding-agent/tests/test_agent_session.py::test_agent_session_persists_messages",
+      "packages/coding-agent/tests/test_agent_session.py::test_agent_session_subscribe_events",
+      "packages/coding-agent/tests/test_agent_session.py::test_agent_session_fork",
+      "packages/coding-agent/tests/test_agent_session.py::TestSessionPersistenceOnMessageEnd::test_messages_persisted_after_prompt",
+      "packages/coding-agent/tests/test_agent_session.py::TestContextUsageAndStats::test_session_stats_message_counts",
+      "packages/coding-agent/tests/test_agent_session.py::TestSessionProperties::test_get_last_assistant_text_after_prompt",
+      "packages/coding-agent/tests/test_e2e.py::test_e2e_read_write_workflow",
+      "packages/coding-agent/tests/test_e2e.py::test_e2e_session_persistence",
+      "packages/coding-agent/tests/test_e2e.py::test_e2e_compaction",
+      "packages/coding-agent/tests/test_new_modules.py::TestExecCommand::test_basic_echo",
+      "packages/coding-agent/tests/test_new_modules.py::TestExecCommand::test_exit_nonzero",
+      "packages/coding-agent/tests/test_new_modules.py::TestExecCommand::test_timeout",
+      "packages/coding-agent/tests/test_new_modules.py::TestExecCommand::test_cancellation",
+      "packages/coding-agent/tests/test_new_modules.py::TestExecCommand::test_stderr_capture",
+      "packages/coding-agent/tests/test_new_modules.py::TestConfigSelector::test_build_config_items",
+      "packages/coding-agent/tests/test_new_modules.py::TestConfigSelector::test_options_dataclass"
+    ]
+  },
+  "live_provider_probe": {
+    "requests_sent": 0,
+    "blocked_by": "Gemini credential unavailable",
+    "scripted_runner_contract_passed": 8
+  },
+  "hosted_github_actions": "pending"
+}
