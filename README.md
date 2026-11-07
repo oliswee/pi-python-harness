@@ -1,6 +1,21 @@
 # pi-mono-python
 
-Mini-Nanobot extends this Python Pi baseline. See the [M1 baseline audit](docs/baseline-gap-audit.md), [M2 recovery contract](docs/recovery-invariants.md), [M3 tool policy](docs/tool-policy.md), [M4 memory lifecycle](docs/memory-lifecycle.md), and [M5 context budget](docs/context-budget.md).
+Mini-Nanobot extends this Python Pi baseline with durable tool execution, bounded reads, scoped memory, and verified context compaction.
+
+### Mini-Nanobot offline demo
+
+```powershell
+uv sync --locked --all-packages --python 3.13
+uv run --locked python benchmarks/evaluate.py --case B02 --trials 1 --output mini-nanobot-demo
+```
+
+B02 runs the existing Pi agent against a seeded workspace and verifies its output file. The report identifies the model replies, diagnostic trace, and verifier outcome. Use a new output directory for another run.
+
+- [Architecture](docs/architecture.md) and [baseline audit](docs/baseline-gap-audit.md)
+- [Recovery](docs/recovery-invariants.md), [tool policy](docs/tool-policy.md), [memory](docs/memory-lifecycle.md), and [context budget](docs/context-budget.md)
+- [Evaluation protocol](docs/eval-protocol.md), [evidence ledger](docs/evidence-ledger.md), and [release readiness](docs/release-readiness.md)
+
+The rest of this README describes the upstream Python Pi project and its separate CLI.
 
 > Python port of the [pi-mono](../pi-mono) TypeScript monorepo — four packages with aligned code, logic, algorithms, and folder structure.
 >

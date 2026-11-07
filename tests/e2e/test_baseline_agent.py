@@ -147,6 +147,27 @@ async def test_model_failure_is_visible_without_leaking_its_message(tmp_path):
     assert end["error_category"] == "agent_error"
 
 
+async def test_read_pagination_preserves_exact_followup(tmp_path):
+    lines = [f"record {index:04}" for index in range(1, 2201)]
+    (tmp_path / "records.txt").write_text("\n".join(lines), encoding="utf-8")
+
+    def next_page(context):
+        text = tool_result(context, "page-1")
+        assert "record 2000" in text and "record 2001" not in text
+        assert "offset=2001" in text
+        return call("page-2", "read", path="records.txt", offset=2001)(context)
+
+    def finish(context):
+        assert tool_result(context, "page-2").splitlines() == lines[2000:]
+        return [TextContent(type="text", text="2200 records verified")]
+
+    result = await run_fixture(
+        tmp_path, tmp_path, call("page-1", "read", path="records.txt"), next_page, finish,
+    )
+    assert result.status == "ok"
+    assert result.text == "2200 records verified"
+
+
 async def test_cancelled_run_blocks_late_model_write(tmp_path):
     from mini_nanobot import run
 
