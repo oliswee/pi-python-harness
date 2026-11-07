@@ -48,8 +48,13 @@ async def authorization(directory, enabled):
             yield reply(model, TextContent(type="text", text="denied" if last.is_error else "wrote"))
 
     result = await execute(directory, provider, tool_policy=ToolPolicy(allow_writes=not enabled))
-    effect = (directory / "workspace" / "output.txt").exists()
-    return {"verified": result.status == "ok" and not effect and result.text == "denied", "invalid_writes": int(effect)}
+    target = directory / "workspace" / "output.txt"
+    effect = target.exists()
+    denied = result.status == "ok" and result.text == "denied" and not effect
+    permitted = (
+        result.status == "ok" and result.text == "wrote" and effect and target.read_text(encoding="utf-8") == "changed"
+    )
+    return {"verified": denied if enabled else permitted, "task_success": denied, "invalid_writes": int(effect)}
 
 
 async def durability(directory, enabled):
@@ -70,8 +75,13 @@ async def durability(directory, enabled):
         raise RuntimeError("Initial write fixture failed")
     output.write_text("operator sentinel", encoding="utf-8")
     second = await execute(directory, provider, state_dir=state)
-    duplicate = output.read_text(encoding="utf-8") != "operator sentinel"
-    return {"verified": second.status == "ok" and not duplicate, "duplicate_writes": int(duplicate), "provider_calls": calls}
+    final_text = output.read_text(encoding="utf-8")
+    preserved = second.status == "ok" and second.text == "complete" and final_text == "operator sentinel" and calls == 2
+    repeated = second.status == "ok" and second.text == "complete" and final_text == "original effect" and calls == 4
+    return {
+        "verified": preserved if enabled else repeated, "task_success": preserved,
+        "duplicate_writes": int(final_text != "operator sentinel"), "provider_calls": calls,
+    }
 
 
 async def memory(directory, enabled):
@@ -88,7 +98,13 @@ async def memory(directory, enabled):
         yield reply(model, TextContent(type="text", text="observed"))
 
     result = await execute(directory, provider, memory=MemoryScope(store, "fixture") if enabled else None)
-    return {"verified": result.status == "ok" and retained and not revoked, "retained": retained, "revoked_injections": int(revoked)}
+    success = result.status == "ok" and result.text == "observed"
+    recalled = success and retained and not revoked
+    empty = success and not retained and not revoked
+    return {
+        "verified": recalled if enabled else empty, "task_success": recalled,
+        "retained": retained, "revoked_injections": int(revoked),
+    }
 
 
 async def compaction(directory, enabled):
@@ -97,11 +113,12 @@ async def compaction(directory, enabled):
     for filename, value in (("a.txt", "101"), ("b.txt", "202")):
         (workspace / filename).write_text(f"Value: {value}\n" + "filler line\n" * 450, encoding="utf-8")
     observed = 0
+    rejected = False
     ceiling = 7000
     reserve = 512
 
     async def provider(model, context, options=None):
-        nonlocal observed
+        nonlocal observed, rejected
         if context.messages[-1].role == "user" and not context.system_prompt:
             yield reply(model, call("a", "read", path="a.txt"), call("b", "read", path="b.txt"), reason="toolUse")
             return
@@ -111,6 +128,7 @@ async def compaction(directory, enabled):
         observed = len(json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"))
         observed += reserve + 32 + 8 * (len(messages) + len(schemas))
         if observed > ceiling:
+            rejected = True
             error = AssistantMessage(
                 content=[], api=model.api, provider=model.provider, model=model.id,
                 timestamp=0, stop_reason="error", error_message="Fixture context limit",
@@ -124,8 +142,10 @@ async def compaction(directory, enabled):
         fact_rules=(FactRule("a", "a.txt", "Value:"), FactRule("b", "b.txt", "Value:")),
     )
     result = await execute(directory, provider, context_policy=policy if enabled else None)
+    fitted = result.status == "ok" and result.text == "101/202" and 0 < observed <= ceiling
+    overflowed = result.status == "error" and rejected and observed > ceiling
     return {
-        "verified": result.status == "ok" and result.text == "101/202" and 0 < observed <= ceiling,
+        "verified": fitted if enabled else overflowed, "task_success": fitted,
         "request_with_reserve_est": observed, "window_est": ceiling, "runtime_status": result.status,
     }
 
@@ -150,7 +170,7 @@ async def evaluate(output: Path, pairs: int) -> int:
         "revision": revision, "dirty": dirty, "pairs": pairs, "python": platform.python_version(),
         "platform": platform.platform(), "provider": "deterministic fixture", "results": rows,
     })
-    passed = all(row["verified"] is (row["mode"] == "on") for row in rows)
+    passed = all(row["verified"] for row in rows)
     print(f"{len(rows)} paired observations. Expected differences {'verified' if passed else 'failed'}.")
     return int(not passed)
 
