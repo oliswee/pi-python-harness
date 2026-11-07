@@ -12,6 +12,8 @@ jobs:
   offline:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    env:
+      UV_LINK_MODE: copy
     strategy:
       fail-fast: false
       matrix:

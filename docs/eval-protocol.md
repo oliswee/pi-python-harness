@@ -22,7 +22,7 @@ Case success means every registered verifier passed. Tool pairing counts come fr
 | Compaction | Enforce budget with verified read facts | Send the full view to the same scripted window | The request fits and both exact values are available. |
 | Scheduling | Four readers | One reader | Compare paired latency while verifying all 34 ordered outputs. [M3 timing protocol](tool-policy.md) |
 
-The M6 ablation script alternates mode order and isolates each feature and mode in a new fixture directory. These scripted trials measure the specified behaviors. Live model success rates, provider charges and statistical confidence intervals are outside the scope of these small deterministic samples. M5 and the compaction ablation report request estimates separately from provider-reported usage.
+The M6 ablation script alternates mode order and isolates each feature and mode in a new fixture directory. Each ON and OFF observation must demonstrate its own expected behavior. These scripted trials measure the specified behaviors. Live model success rates, provider charges and statistical confidence intervals are outside the scope of these small deterministic samples. M5 and the compaction ablation report request estimates separately from provider-reported usage.
 
 ## Optional real-provider probe
 
