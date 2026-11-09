@@ -1,0 +1,120 @@
+{
+  "revision": "54b755d880de46673c1be6e428984dfa09bc91a3",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "passed": true,
+  "requests": [
+    {
+      "probe": 1,
+      "status": "ok",
+      "dispatched": true,
+      "retained_in_request": true,
+      "revoked_in_request": false,
+      "retained_in_answer": true,
+      "revoked_in_answer": false,
+      "usage": {
+        "input": 83,
+        "output": 6,
+        "total_tokens": 89
+      }
+    },
+    {
+      "probe": 2,
+      "status": "ok",
+      "dispatched": true,
+      "retained_in_request": true,
+      "revoked_in_request": false,
+      "retained_in_answer": true,
+      "revoked_in_answer": false,
+      "usage": {
+        "input": 83,
+        "output": 6,
+        "total_tokens": 89
+      }
+    },
+    {
+      "probe": 3,
+      "status": "ok",
+      "dispatched": true,
+      "retained_in_request": true,
+      "revoked_in_request": false,
+      "retained_in_answer": true,
+      "revoked_in_answer": false,
+      "usage": {
+        "input": 83,
+        "output": 6,
+        "total_tokens": 89
+      }
+    },
+    {
+      "probe": 4,
+      "status": "ok",
+      "dispatched": true,
+      "retained_in_request": true,
+      "revoked_in_request": false,
+      "retained_in_answer": true,
+      "revoked_in_answer": false,
+      "usage": {
+        "input": 83,
+        "output": 6,
+        "total_tokens": 89
+      }
+    },
+    {
+      "probe": 5,
+      "status": "ok",
+      "dispatched": true,
+      "retained_in_request": true,
+      "revoked_in_request": false,
+      "retained_in_answer": true,
+      "revoked_in_answer": false,
+      "usage": {
+        "input": 83,
+        "output": 6,
+        "total_tokens": 89
+      }
+    },
+    {
+      "probe": 6,
+      "status": "ok",
+      "dispatched": true,
+      "retained_in_request": true,
+      "revoked_in_request": false,
+      "retained_in_answer": true,
+      "revoked_in_answer": false,
+      "usage": {
+        "input": 83,
+        "output": 6,
+        "total_tokens": 89
+      }
+    },
+    {
+      "probe": 7,
+      "status": "ok",
+      "dispatched": true,
+      "retained_in_request": true,
+      "revoked_in_request": false,
+      "retained_in_answer": true,
+      "revoked_in_answer": false,
+      "usage": {
+        "input": 83,
+        "output": 6,
+        "total_tokens": 89
+      }
+    },
+    {
+      "probe": 8,
+      "status": "ok",
+      "dispatched": true,
+      "retained_in_request": true,
+      "revoked_in_request": false,
+      "retained_in_answer": true,
+      "revoked_in_answer": false,
+      "usage": {
+        "input": 83,
+        "output": 6,
+        "total_tokens": 89
+      }
+    }
+  ]
+}
