@@ -1,4 +1,4 @@
-"""Opt-in Gemini verification of eight post-revocation provider requests."""
+"""Opt-in verification of eight post-revocation requests with Gemini or DeepSeek."""
 
 import argparse
 import asyncio
@@ -8,7 +8,7 @@ from contextlib import aclosing
 from pathlib import Path
 
 from pi_ai import get_model, stream_simple
-from pi_ai.types import EventDone
+from pi_ai.types import EventDone, Model
 
 from mini_nanobot import MemoryScope, MemoryStore, ToolPolicy, run
 
@@ -70,7 +70,7 @@ async def verify(output, model, key):
         for row in rows
     )
     write_json(output / "report.json", {
-        "revision": revision, "provider": "google", "model": model.id, "passed": passed, "requests": rows,
+        "revision": revision, "provider": model.provider, "model": model.id, "passed": passed, "requests": rows,
     })
     print(f"{len(rows)}/8 probes recorded. Context verification {'passed' if passed else 'incomplete'}.")
     return int(not passed)
@@ -78,15 +78,28 @@ async def verify(output, model, key):
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", required=True, help="A Gemini model ID present in the pinned Pi registry.")
+    parser.add_argument("--provider", choices=("google", "deepseek"), default="google")
+    parser.add_argument("--model", help="A registered Gemini model ID or a DeepSeek model ID (default: deepseek-flash).")
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
-    key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
-    if not key or not key.strip():
-        parser.error("Set an authorized Gemini API key in GEMINI_API_KEY or GOOGLE_API_KEY before running live probes")
-    model = get_model("google", args.model)
-    if model is None:
-        parser.error("The Gemini model ID is absent from the pinned Pi registry")
+    if args.provider == "deepseek":
+        key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+        if not key:
+            parser.error("Set DEEPSEEK_API_KEY before running DeepSeek probes")
+        model_id = args.model or "deepseek-flash"
+        model = Model(
+            id=model_id, name=model_id, api="openai-completions",
+            provider="deepseek", base_url="https://api.deepseek.com",
+        )
+    else:
+        if not args.model:
+            parser.error("--model is required for Gemini probes")
+        key = os.environ.get("GEMINI_API_KEY", "").strip() or os.environ.get("GOOGLE_API_KEY", "").strip()
+        if not key:
+            parser.error("Set GEMINI_API_KEY or GOOGLE_API_KEY before running Gemini probes")
+        model = get_model("google", args.model)
+        if model is None:
+            parser.error("The Gemini model ID is absent from the pinned Pi registry")
     return asyncio.run(verify(args.output.resolve(), model, key))
 
 

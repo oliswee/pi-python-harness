@@ -4,7 +4,7 @@
 
 - The Mini-Nanobot adapter registers workspace read and write. Its path policy resolves targets, rejects protected paths and Windows device names, and requires state and memory storage outside the tool workspace. The workspace and local filesystem are trusted. For untrusted workloads, use OS-level isolation and a separate working directory with minimal permissions.
 - The inherited Pi CLI has its own tools, including shell execution. Use the Mini-Nanobot entry point for the controls described here. Treat prompts, tool output, recalled text, and summaries as untrusted data.
-- Keep provider credentials in the process environment or an ignored local credential store. The offline CI and evaluation fixtures use injected scripted providers. The opt-in Gemini verifier sends only seeded canaries and saves response flags and reported usage.
+- Keep provider credentials in the process environment or an ignored local credential store. The offline CI and evaluation fixtures use injected scripted providers. The opt-in Gemini and DeepSeek verifier uses synthetic memory and saves response flags and reported usage.
 - Diagnostic traces use an allowlist of metadata. The journal, checkpoint, and SQLite memory can retain raw text, tool arguments, and responses. Use private storage, scope access at the caller boundary, and apply a retention policy. Revocation governs fresh context assembly and historical replay.
 - Durable execution was tested against process termination on a trusted local filesystem. An uncertain write needs operator inspection. Whole-request token figures are estimates at the Pi provider boundary.
 
@@ -24,5 +24,5 @@ uv export --locked --all-packages --no-dev --format cyclonedx1.5 --output-file r
 
 - The workflow installs from the lock in uv copy mode and runs Pi CLI help, the core E2E suite, and an evaluation-runner smoke test on Windows and Ubuntu. A fresh Windows clone passed locked installation, CLI help, all 73 focused tests, and both evaluation smoke cases. An earlier installation attempt hit a Windows cloud-filesystem hardlink error, which copy mode avoided. Hosted status becomes available when the workflow runs on GitHub. [Windows verification record](../evidence/m7/verification.json)
 - The broad inherited offline suite had 651 passes and the same 18 known upstream failures documented in the [M1 audit](baseline-gap-audit.md). The CI job selects the Mini-Nanobot and Pi Agent suites.
-- M4's eight offline request checks are reproducible. Eight successful live probes require an authorized Gemini credential and a usable model from the pinned Pi registry.
+- M4's eight offline request checks are reproducible. Eight successful live probes require an authorized Gemini or DeepSeek credential and a usable model. [Evaluation protocol](eval-protocol.md)
 - Distribution depends on resolving the Python port licensing gap. The [evidence ledger](evidence-ledger.md) distinguishes offline claims, measurements, and outstanding gates.

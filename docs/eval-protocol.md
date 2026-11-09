@@ -28,7 +28,13 @@ The M6 ablation script alternates mode order and isolates each feature and mode 
 
 ## Optional real-provider probe
 
-With an authorized Gemini credential in `GEMINI_API_KEY` or `GOOGLE_API_KEY`, choose an accessible Gemini model ID from the pinned registry and run the following. The probe can send up to eight paid requests.
+With an authorized credential in `DEEPSEEK_API_KEY`, run the following. The script defaults to `deepseek-flash` with thinking disabled. Use `--model` to select another accessible DeepSeek model. The eight probes use billable API calls. [DeepSeek Chat Completions API](https://api-docs.deepseek.com/api/create-chat-completion/)
+
+```powershell
+uv run --locked python benchmarks/live_revocation.py --provider deepseek --output live-m4-deepseek
+```
+
+For Gemini, set `GEMINI_API_KEY` or `GOOGLE_API_KEY` and use an accessible Gemini model ID from the pinned registry.
 
 ```powershell
 uv run --locked python benchmarks/live_revocation.py --model <registered-model-id> --output live-m4

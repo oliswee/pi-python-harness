@@ -192,6 +192,8 @@ async def stream_simple(
     if opts.reasoning:
         effort_map = {"minimal": "low", "low": "low", "medium": "medium", "high": "high", "xhigh": "high"}
         params["reasoning_effort"] = effort_map.get(opts.reasoning, "medium")
+    elif model.provider == "deepseek" and not model.reasoning:
+        params["extra_body"] = {"thinking": {"type": "disabled"}}
 
     partial = _make_empty_assistant(model)
     content_blocks: list[Any] = []
