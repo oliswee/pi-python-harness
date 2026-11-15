@@ -1,7 +1,10 @@
 import asyncio
 import json
+import sqlite3
 import threading
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+from contextlib import closing
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -105,6 +108,59 @@ def test_stale_store_handle_cannot_mutate_replacement_database(tmp_path):
         create(store, content="must not be inserted")
 
     assert MemoryStore(store.path).recall("project") == [retained]
+
+
+def test_v1_store_migration_preserves_identity_and_history(tmp_path):
+    from mini_nanobot import MemoryStore
+
+    path = tmp_path / "memory.sqlite"
+    with closing(sqlite3.connect(path)) as conn, conn:
+        conn.executescript("""
+            PRAGMA user_version = 1;
+            CREATE TABLE memory_store (store_id TEXT PRIMARY KEY);
+            INSERT INTO memory_store VALUES ('existing-store');
+            CREATE TABLE memory (
+                scope TEXT NOT NULL, memory_id TEXT NOT NULL, revision INTEGER NOT NULL,
+                kind TEXT NOT NULL, content TEXT NOT NULL, provenance TEXT NOT NULL,
+                source_run_id TEXT, created_at TEXT NOT NULL, valid_from TEXT NOT NULL, valid_to TEXT,
+                superseded_by INTEGER, revoked_at TEXT, tombstone INTEGER NOT NULL DEFAULT 0,
+                PRIMARY KEY (scope, memory_id, revision)
+            );
+            INSERT INTO memory VALUES (
+                'project', 'old-memory', 1, 'rule', 'still active', 'operator', NULL,
+                '2000-01-01T00:00:00.000000+00:00', '2000-01-01T00:00:00.000000+00:00', NULL, NULL, NULL, 0
+            );
+        """)
+
+    migrated = MemoryStore(path)
+    assert migrated.store_id == "existing-store"
+    [record] = migrated.recall("project")
+    assert record.ref.memory_id == "old-memory"
+    assert record.expires_at is None and record.content == "still active"
+    assert MemoryStore(path).history("project", record.ref.memory_id) == [record]
+
+
+def test_superseding_a_rule_preserves_its_utc_expiry(tmp_path, monkeypatch):
+    from mini_nanobot import MemoryConflict, MemoryStore, memory_store
+
+    now = datetime(2030, 1, 1, tzinfo=timezone.utc)
+    deadline = now + timedelta(hours=1)
+    monkeypatch.setattr(memory_store, "_now", lambda: now.isoformat(timespec="microseconds"))
+    store = MemoryStore(tmp_path / "memory.sqlite")
+    with pytest.raises(ValueError, match="timezone-aware"):
+        store.create("project", kind="rule", content="naive", provenance="operator", expires_at=deadline.replace(tzinfo=None))
+    record = store.create(
+        "project", kind="rule", content="temporary", provenance="operator",
+        expires_at=deadline.astimezone(timezone(timedelta(hours=11))),
+    )
+    replacement = store.supersede("project", record.ref, content="updated", provenance="operator")
+    assert replacement.expires_at == record.expires_at == deadline.isoformat(timespec="microseconds")
+    now = deadline - timedelta(microseconds=1)
+    assert store.recall("project") == [replacement]
+    now = deadline
+    assert store.recall("project") == []
+    with pytest.raises(MemoryConflict):
+        store.require_current("project", {replacement.ref})
 
 
 async def test_eight_new_requests_exclude_revoked_revision_after_restart(tmp_path):

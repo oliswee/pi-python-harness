@@ -29,12 +29,14 @@ Keep the database outside the tool workspace. A run with a durable state directo
 
 | Operation | Effect |
 | --- | --- |
-| `create` | Creates a new identity with revision 1, kind, provenance, and an optional source run ID. |
-| `supersede` | Closes the expected active revision and creates its replacement in one transaction. A stale edit raises `MemoryConflict`. |
+| `create` | Creates a new identity with revision 1, kind, provenance, an optional source run ID, and an optional timezone-aware `expires_at` datetime. |
+| `supersede` | Closes the expected active revision and creates its replacement in one transaction. The replacement inherits the expiry. A stale edit raises `MemoryConflict`. |
 | `invalidate` | Ends the validity of the expected active revision. |
 | `revoke` | Tombstones every revision of an identity within its scope. Repeating revocation preserves the original revocation timestamp. |
 | `recall` | Selects active rows in one scope, most recent first. The limit is between 1 and 16. |
 | `history` | Lists retained revisions for caller-side inspection, including tombstones. |
+
+Opening an existing version 1 database preserves its identity and history, and adds the nullable expiry field. The store normalizes expiry to UTC and treats a revision as inactive at its exact deadline. Expiry applies both to fresh recall and to the revision checks for an existing run.
 
 ## Request and recovery boundaries
 

@@ -7,8 +7,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-_SCHEMA_VERSION = 1
-_ACTIVE = "valid_from <= ? AND valid_to IS NULL AND revoked_at IS NULL AND tombstone = 0"
+_SCHEMA_VERSION = 2
+_ACTIVE = (
+    "valid_from <= ? AND (expires_at IS NULL OR expires_at > ?) "
+    "AND valid_to IS NULL AND revoked_at IS NULL AND tombstone = 0"
+)
 
 
 class MemoryConflict(RuntimeError):
@@ -35,6 +38,7 @@ class MemoryRecord:
     revoked_at: str | None
     tombstone: bool
     source_run_id: str | None
+    expires_at: str | None = None
 
 
 def _now() -> str:
@@ -84,6 +88,7 @@ class MemoryStore:
                         superseded_by INTEGER,
                         revoked_at TEXT,
                         tombstone INTEGER NOT NULL DEFAULT 0,
+                        expires_at TEXT,
                         PRIMARY KEY (scope, memory_id, revision)
                     )
                 """)
@@ -91,9 +96,12 @@ class MemoryStore:
                     CREATE INDEX memory_recall ON memory (scope, created_at DESC, memory_id, revision)
                     WHERE valid_to IS NULL AND revoked_at IS NULL AND tombstone = 0
                 """)
-                conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
+            elif version == 1:
+                conn.execute("ALTER TABLE memory ADD COLUMN expires_at TEXT")
             elif version != _SCHEMA_VERSION:
                 raise ValueError(f"Unsupported memory database version {version}")
+            if version != _SCHEMA_VERSION:
+                conn.execute(f"PRAGMA user_version = {_SCHEMA_VERSION}")
             self.store_id = conn.execute("SELECT store_id FROM memory_store").fetchone()[0]
 
     @contextmanager
@@ -110,12 +118,18 @@ class MemoryStore:
 
     def create(
         self, scope: str, *, kind: str, content: str, provenance: str, source_run_id: str | None = None,
+        expires_at: datetime | None = None,
     ) -> MemoryRecord:
         _validate_text(scope, "scope", 256)
         _validate_text(kind, "kind", 64)
         self._validate_entry(content, provenance, source_run_id)
+        if expires_at is not None and (not isinstance(expires_at, datetime) or expires_at.utcoffset() is None):
+            raise ValueError("Memory expiry requires a timezone-aware datetime")
+        deadline = expires_at.astimezone(timezone.utc).isoformat(timespec="microseconds") if expires_at is not None else None
         with self._transaction() as conn:
-            return self._insert(conn, scope, MemoryRef(uuid4().hex, 1), kind, content, provenance, source_run_id, _now())
+            return self._insert(
+                conn, scope, MemoryRef(uuid4().hex, 1), kind, content, provenance, source_run_id, _now(), deadline,
+            )
 
     def supersede(
         self, scope: str, ref: MemoryRef, *, content: str, provenance: str, source_run_id: str | None = None,
@@ -129,7 +143,7 @@ class MemoryStore:
                 "UPDATE memory SET valid_to = ?, superseded_by = ? WHERE scope = ? AND memory_id = ? AND revision = ?",
                 (now, replacement.revision, scope, ref.memory_id, ref.revision),
             )
-            return self._insert(conn, scope, replacement, old.kind, content, provenance, source_run_id, now)
+            return self._insert(conn, scope, replacement, old.kind, content, provenance, source_run_id, now, old.expires_at)
 
     def invalidate(self, scope: str, ref: MemoryRef) -> None:
         with self._transaction() as conn:
@@ -172,7 +186,7 @@ class MemoryStore:
             rows = conn.execute(
                 f"SELECT * FROM memory WHERE scope = ? AND {_ACTIVE} "
                 "ORDER BY created_at DESC, memory_id, revision DESC LIMIT ?",
-                (scope, now, limit),
+                (scope, now, now, limit),
             )
             yield [_record(row) for row in rows]
 
@@ -194,7 +208,7 @@ class MemoryStore:
     def _active_record(conn, scope: str, ref: MemoryRef, now: str) -> MemoryRecord:
         row = conn.execute(
             f"SELECT * FROM memory WHERE scope = ? AND memory_id = ? AND revision = ? AND {_ACTIVE}",
-            (scope, ref.memory_id, ref.revision, now),
+            (scope, ref.memory_id, ref.revision, now, now),
         ).fetchone()
         if row is None:
             raise MemoryConflict("Memory revision is no longer active in this scope")
@@ -208,12 +222,13 @@ class MemoryStore:
             _validate_text(source_run_id, "source_run_id", 256)
 
     @staticmethod
-    def _insert(conn, scope, ref, kind, content, provenance, source_run_id, now) -> MemoryRecord:
+    def _insert(conn, scope, ref, kind, content, provenance, source_run_id, now, expires_at) -> MemoryRecord:
         conn.execute("""
-            INSERT INTO memory (scope, memory_id, revision, kind, content, provenance, source_run_id, created_at, valid_from)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (scope, ref.memory_id, ref.revision, kind, content, provenance, source_run_id, now, now))
-        return MemoryRecord(ref, scope, kind, content, provenance, now, now, None, None, None, False, source_run_id)
+            INSERT INTO memory (
+                scope, memory_id, revision, kind, content, provenance, source_run_id, created_at, valid_from, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (scope, ref.memory_id, ref.revision, kind, content, provenance, source_run_id, now, now, expires_at))
+        return MemoryRecord(ref, scope, kind, content, provenance, now, now, None, None, None, False, source_run_id, expires_at)
 
 
 @dataclass(frozen=True)

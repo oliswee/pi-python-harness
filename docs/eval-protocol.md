@@ -1,6 +1,6 @@
 # M6 evaluation protocol
 
-The [case manifest](../benchmarks/cases.json) names the deterministic verifier and pytest selectors for 12 cases across eight capabilities. Every trial uses a fresh subprocess. Pytest allocates an independent temporary workspace for each verifier. The fixtures create their inputs locally and use scripted providers with fixed outputs.
+The case manifest names the deterministic verifier and pytest selectors for the original 12 cases and the later B13 repair case. Every trial uses a fresh subprocess. Pytest allocates an independent temporary workspace for each verifier. The fixtures create their inputs locally and use scripted providers. [Current case manifest](../benchmarks/cases.json)
 
 ```powershell
 uv sync --locked --all-packages --python 3.13
@@ -25,6 +25,16 @@ The frozen Windows run passed **12/12 cases in each of three trials**, with 102 
 | Scheduling | Four readers | One reader | Compare paired latency while verifying all 34 ordered outputs. [M3 timing protocol](tool-policy.md) |
 
 The M6 ablation script alternates mode order and isolates each feature and mode in a new fixture directory. Each ON and OFF observation must demonstrate its own expected behavior. These scripted trials measure the specified behaviors. Live model success rates, provider charges and statistical confidence intervals are outside the scope of these small deterministic samples. M5 and the compaction ablation report request estimates separately from provider-reported usage.
+
+## Long-context repair and memory expiry
+
+B13 reads oversized billing source and historical notes, then uses the compacted view to repair an invoice discount function. The verifier checks the original user constraints and the exact source path, tool call ID, and SHA-256 in the provider context. It executes five cases against the Python function before and after the repair and checks that only the intended file changed. An independent read-only run reopens the SQLite database at the expiry boundary and checks both provider requests for retained, expired, and revoked rules.
+
+```powershell
+uv run --locked python benchmarks/evaluate.py --case B13 --trials 3 --output evaluation-context-repair
+```
+
+B13 uses a scripted provider. Its trace reports request estimates using the default UTF-8 byte estimator. [Repair verifier](../tests/e2e/test_long_context_repair.py)
 
 ## Optional real-provider probe
 
