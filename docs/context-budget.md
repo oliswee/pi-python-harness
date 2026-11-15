@@ -29,6 +29,8 @@ The default counts UTF-8 bytes of a normalized JSON request plus the framing all
 
 Compaction replaces only a contiguous prefix of complete read-only tool turns in the provider's view. The original user message and every write or mixed turn remain in the request. The underlying Pi transcript and tool journal remain the source of recovery.
 
+The compacted view includes up to eight recent completed read records and the current text of small, untruncated results within a shared 1 KiB budget. This preserves progress when one tool batch contains both bulky observations and the short file the agent needs to edit. A later write removes that file's old text from the compacted view.
+
 Each fact rule selects one nonempty value by path and line prefix from a successful read result. The snapshot carries the exact value, path, call ID, and SHA-256 digest of the source text. Missing, ambiguous, oversized, or newer conflicting evidence blocks compaction. In the trusted workspace, recorded file identities detect subsequent writes through aliases such as hardlinks. A successful write with unknown identity invalidates prior read evidence conservatively. The original prompt retains the caller's operation constraints.
 
 With no summarizer, the verified facts form an extractive summary. An optional `summarizer` stream receives the fact array in its own budgeted request without tools. It must return JSON with every exact value and citation. Its response can reorder entries. The runtime admits only the verified source-backed fields into the compacted view.

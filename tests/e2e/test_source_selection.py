@@ -42,7 +42,8 @@ async def test_selector_verifies_reread_and_persisted_source(tmp_path, forged):
         else:
             assert payload["sources"][0]["lines"] == [[211, quote]]
             result = [{**selection, "quote": "MAX_CENTS = 999" if forged else quote}]
-        yield reply(model, TextContent(type="text", text=json.dumps(result)))
+        payload = json.dumps(result)
+        yield reply(model, TextContent(type="text", text=f"```json\n{payload}\n```"))
 
     async def provider(model, ctx, options):
         calls.append(ctx)

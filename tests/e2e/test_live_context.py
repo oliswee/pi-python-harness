@@ -47,20 +47,28 @@ async def test_repair_comparison_runs_each_arm_and_verifies_preconditions(
                 assert context.system_prompt.startswith(bench.SYSTEM_PROMPT)
             else:
                 assert context.system_prompt.startswith("Audit sequence")
-            if step < 3:
-                path = ("policy.py", "history.txt", "logic.py")[step]
-                content = ToolCall(type="toolCall", id=f"read-{step}", name="read", arguments={"path": path})
+            if step == 0:
+                content = [
+                    ToolCall(type="toolCall", id=f"read-{index}", name="read", arguments={"path": path})
+                    for index, path in enumerate(("policy.py", "history.txt", "logic.py"))
+                ]
                 reason = "toolUse"
-            elif step == 3:
+            elif step == 1:
+                if compression != "full":
+                    assert '"path":"history.txt"' in context.system_prompt
+                    assert '"path":"logic.py"' in context.system_prompt and case.original in context.system_prompt
+                    assert "Diagnostic 045" not in context.system_prompt
                 content = ToolCall(type="toolCall", id="fix", name="write", arguments={
                     "path": "logic.py", "content": f"def {case.signature}:\n    return {fixed}\n",
                 })
                 reason = "toolUse"
             else:
+                if compression != "full":
+                    assert f"    return {case.original}\\n" not in context.system_prompt
                 content = TextContent(type="text", text="Capped delay using policy.py.")
         usage = Usage(input=9, output=3, cache_read=12, total_tokens=24)
         message = AssistantMessage(
-            content=[content], api=model.api, provider=model.provider, model=model.id,
+            content=content if isinstance(content, list) else [content], api=model.api, provider=model.provider, model=model.id,
             timestamp=0, stop_reason=reason, usage=usage,
         )
         yield EventDone(type="done", reason=reason, message=message)
@@ -69,9 +77,9 @@ async def test_repair_comparison_runs_each_arm_and_verifies_preconditions(
     result = await bench.run_case(case, model, provider, tmp_path / "trial", compression, layout)
     assert result["repair_verified"] and result["status"] == "ok"
     assert result["compactions"] == int(compression != "full")
-    assert len(finished) == 5 and selection_calls == int(compression == "selected")
+    assert len(finished) == 3 and selection_calls == int(compression == "selected")
     assert result["cache_hit_ratio"] == pytest.approx(12 / 21)
-    assert result["total_tokens"] == (5 + selection_calls) * 24
+    assert result["total_tokens"] == (3 + selection_calls) * 24
     assert not bench.verify_source("def retry_delay(base, attempt):\n    return __import__('os')\n", case)
 
 

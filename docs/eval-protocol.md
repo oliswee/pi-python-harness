@@ -61,3 +61,5 @@ uv run --locked python benchmarks/live_context.py --trials 1 --output live-conte
 ```
 
 Set `DEEPSEEK_API_KEY` in the process environment. The suite runs billing, retry, and inventory fixtures. Use `--case retry` for a smaller run. One trial supports up to eight model calls for each condition and case. The verifier checks file scope, the source citation, and three arithmetic cases with a restricted Python expression. It records total provider token usage including selector requests, cache hit ratio for agent requests with cache telemetry, time to first streamed text or tool output, wall time, and repair outcome. [DeepSeek cache fields](https://api-docs.deepseek.com/api/create-chat-completion/)
+
+The first live trial at `f95c0fd` verified 3 of 12 repairs, all with full context. Five conditions repeatedly read the same files after compaction, which had discarded the read-progress record for those batches. The other four conditions reached the context limit before sending a compacted request. DeepSeek reported zero cache hits across the measured agent requests. [Initial live report](../evidence/m8/live-context-initial-report.json)
