@@ -33,6 +33,12 @@ Each fact rule selects one nonempty value by path and line prefix from a success
 
 With no summarizer, the verified facts form an extractive summary. An optional `summarizer` stream receives the fact array in its own budgeted request without tools. It must return JSON with every exact value and citation. Its response can reorder entries. The runtime admits only the verified source-backed fields into the compacted view.
 
+### Model-selected source excerpts
+
+Set `ContextPolicy(evidence_selector=provider)` in place of `fact_rules` to admit source excerpts selected by a model. The selector receives the original task and a bounded preview of the latest successful text reads in the compactable prefix. It can request one more line range from an offered tool result. That lookup uses the captured tool output and adds no filesystem operation. Selectors and optional summary verification use tool-free requests subject to the same input and output budget.
+
+The runtime requires the exact quote, file path, call ID, inclusive line range, and a symbol present in the quote before computing the excerpt SHA-256. It checks for newer conflicting read or write evidence before activation and each reuse. Invalid proposals or evidence that exceeds the budget leave compaction uncommitted. Configure a timeout on a live provider, and use `read` with an explicit offset and limit when a source exceeds the file tool's output limit.
+
 ## Durability and invalidation
 
 A durable run syncs a staged view, then syncs a commit that names the exact staged checksum. The journal and the existing derived checkpoint retain the active version. Restart after staging rebuilds the candidate, and restart after commit reuses the active view once its source prefix and current evidence validate. A failed candidate preserves the prior active version and returns `context_limit` if the request still exceeds the budget.
