@@ -32,7 +32,9 @@ class RunMemory:
         return True
 
     def _assemble(self, context: Context) -> Context:
-        with self.memory.store.assembly(self.memory.scope, self.refs, limit=self.memory.limit) as records:
+        with self.memory.store.assembly(
+            self.memory.scope, self.refs, limit=self.memory.limit, query=self.memory.query,
+        ) as records:
             if not records:
                 return context
             new_refs = {record.ref for record in records} - self.refs

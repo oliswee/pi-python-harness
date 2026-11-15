@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import re
 import sqlite3
 from contextlib import closing, contextmanager
 from dataclasses import dataclass
@@ -60,6 +62,31 @@ def _validate_text(value: str, field: str, max_bytes: int) -> None:
 def _validate_limit(limit: int) -> None:
     if not isinstance(limit, int) or not 1 <= limit <= 16:
         raise ValueError("Memory recall limit must be between 1 and 16")
+
+
+def _search_terms(query: str) -> str:
+    if not isinstance(query, str) or len(query.encode("utf-8")) > 4096:
+        raise ValueError("Memory query must be text of at most 4096 UTF-8 bytes")
+    terms = list(dict.fromkeys(re.findall(r"[^\W_]+", query.lower())))[:32]
+    return " OR ".join(f'"{term}"' for term in terms)
+
+
+def _ensure_search_index(conn: sqlite3.Connection) -> None:
+    if conn.execute("SELECT 1 FROM sqlite_schema WHERE name = 'memory_fts'").fetchone() is not None:
+        return
+    try:
+        conn.execute("CREATE VIRTUAL TABLE memory_fts USING fts5(content, content='memory', content_rowid='rowid')")
+    except sqlite3.OperationalError as error:
+        if "no such module: fts5" in str(error):
+            raise RuntimeError("Ranked memory recall requires SQLite FTS5") from error
+        raise
+    conn.execute("INSERT INTO memory_fts(memory_fts) VALUES ('rebuild')")
+    # Memory revisions are append-only. Validity changes are filtered on the authority table.
+    conn.execute("""
+        CREATE TRIGGER memory_fts_insert AFTER INSERT ON memory BEGIN
+            INSERT INTO memory_fts(rowid, content) VALUES (new.rowid, new.content);
+        END
+    """)
 
 
 class MemoryStore:
@@ -172,22 +199,35 @@ class MemoryStore:
             )
             return [_record(row) for row in rows]
 
-    def recall(self, scope: str, *, limit: int = 16) -> list[MemoryRecord]:
-        with self.assembly(scope, set(), limit=limit) as records:
+    def recall(self, scope: str, *, limit: int = 16, query: str | None = None) -> list[MemoryRecord]:
+        with self.assembly(scope, set(), limit=limit, query=query) as records:
             return records
 
     @contextmanager
-    def assembly(self, scope: str, required: set[MemoryRef], *, limit: int):
+    def assembly(self, scope: str, required: set[MemoryRef], *, limit: int, query: str | None = None):
         _validate_text(scope, "scope", 256)
         _validate_limit(limit)
+        terms = _search_terms(query) if query is not None else None
         with self._transaction() as conn:
             now = _now()
             self._require_current(conn, scope, required, now)
-            rows = conn.execute(
-                f"SELECT * FROM memory WHERE scope = ? AND {_ACTIVE} "
-                "ORDER BY created_at DESC, memory_id, revision DESC LIMIT ?",
-                (scope, now, now, limit),
-            )
+            if terms == "":
+                yield []
+                return
+            if terms is None:
+                rows = conn.execute(
+                    f"SELECT * FROM memory WHERE scope = ? AND {_ACTIVE} "
+                    "ORDER BY created_at DESC, memory_id, revision DESC LIMIT ?",
+                    (scope, now, now, limit),
+                )
+            else:
+                _ensure_search_index(conn)
+                rows = conn.execute(
+                    f"SELECT memory.* FROM memory_fts JOIN memory ON memory.rowid = memory_fts.rowid "
+                    f"WHERE memory_fts MATCH ? AND scope = ? AND {_ACTIVE} "
+                    "ORDER BY rank, created_at DESC, memory_id, revision DESC LIMIT ?",
+                    (terms, scope, now, now, limit),
+                )
             yield [_record(row) for row in rows]
 
     def require_current(self, scope: str, refs: set[MemoryRef]) -> None:
@@ -236,10 +276,16 @@ class MemoryScope:
     store: MemoryStore
     scope: str
     limit: int = 16
+    query: str | None = None
 
     def __post_init__(self) -> None:
         _validate_text(self.scope, "scope", 256)
         _validate_limit(self.limit)
+        if self.query is not None:
+            _search_terms(self.query)
 
-    def binding(self) -> dict[str, str]:
-        return {"store_id": self.store.store_id, "path": str(self.store.path), "scope": self.scope}
+    def binding(self) -> dict[str, str | int]:
+        binding = {"store_id": self.store.store_id, "path": str(self.store.path), "scope": self.scope}
+        if self.query is not None:
+            binding.update(query_sha256=hashlib.sha256(self.query.encode("utf-8")).hexdigest(), query_limit=self.limit)
+        return binding

@@ -36,6 +36,8 @@ Keep the database outside the tool workspace. A run with a durable state directo
 | `recall` | Selects active rows in one scope, most recent first. The limit is between 1 and 16. |
 | `history` | Lists retained revisions for caller-side inspection, including tombstones. |
 
+Pass `MemoryScope(store, "project-a", query="invoice.py discount")` to rank recall by task keywords. SQLite FTS5 ranks matched record content, and the same transaction joins those candidates to the current rows in the selected scope before applying the limit. Punctuation and operators in the query are treated as text separators. A query with no matches injects no records. The first ranked query builds the index from existing revisions. Later inserts update the index in the write transaction. Ranked durable runs bind the query digest and requested limit.
+
 Opening an existing version 1 database preserves its identity and history, and adds the nullable expiry field. The store normalizes expiry to UTC and treats a revision as inactive at its exact deadline. Expiry applies both to fresh recall and to the revision checks for an existing run.
 
 ## Request and recovery boundaries
