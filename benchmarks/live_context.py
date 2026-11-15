@@ -214,9 +214,11 @@ async def run_case(case: Repair, model: Model, provider, directory: Path, compre
         result = None
 
     status = result.status if result else "timeout"
-    compacted = sum(
-        row["event_type"] == "context_compacted" for row in read_jsonl(result.trace_path)
-    ) if result else 0
+    trace = read_jsonl(result.trace_path) if result else []
+    compacted = sum(row["event_type"] == "context_compacted" for row in trace)
+    context_block_reason = next(
+        (row["error_category"] for row in reversed(trace) if row["event_type"] == "context_blocked"), None,
+    )
     after = {path.name: path.read_bytes() if path.is_file() else None for path in workspace.iterdir()}
     repair_ok = (
         result is not None and result.status == "ok" and "policy.py" in result.text
@@ -233,6 +235,7 @@ async def run_case(case: Repair, model: Model, provider, directory: Path, compre
     cache_denominator = sum(row["input_tokens"] for row in cached)
     return {
         "case": case.name, "compression": compression, "layout": layout, "status": status,
+        "context_block_reason": context_block_reason,
         "repair_verified": repair_ok, "compactions": compacted, "wall_ms": round((perf_counter() - started) * 1000, 3),
         "first_delta_ms_median": median(timings) if timings else None, "total_tokens": sum(row["total_tokens"] for row in usage),
         "cache_hit_ratio": sum(row["cache_hit_tokens"] for row in cached) / cache_denominator if cache_denominator else None,

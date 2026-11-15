@@ -66,7 +66,8 @@ def document_provider(calls):
             assert "north.txt" in context.system_prompt and "south.txt" in context.system_prompt
             assert "filler" not in str(context.messages)
             if len(calls) == 2:
-                assert len(context.messages) == 1
+                assert len(context.messages) == 4
+                assert [message.tool_call_id for message in context.messages[2:]] == ["north", "south"]
                 yield reply(model, read("verify", "check.txt"), reason="toolUse")
             else:
                 assert isinstance(context.messages[-1], ToolResultMessage)

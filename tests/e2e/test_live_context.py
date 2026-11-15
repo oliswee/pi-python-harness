@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from pi_ai import get_model
+from pi_ai.providers.openai_completions import _build_messages
 from pi_ai.types import AssistantMessage, EventDone, EventError, TextContent, ToolCall, Usage
 
 
@@ -35,9 +36,8 @@ async def test_repair_comparison_runs_each_arm_and_verifies_preconditions(
             payload = json.loads(context.messages[0].content)
             source = next(src for src in payload["sources"] if src["path"] == "policy.py")
             proposals = [
-                {"call_id": source["call_id"], "path": "policy.py", "line_start": line, "line_end": line,
-                 "symbol": quote.split()[0], "quote": quote}
-                for line, quote in source["lines"]
+                {"call_id": source["call_id"], "line_start": line, "line_end": line}
+                for line, _ in source["lines"]
             ]
             content = TextContent(type="text", text=json.dumps(proposals))
         else:
@@ -55,16 +55,21 @@ async def test_repair_comparison_runs_each_arm_and_verifies_preconditions(
                 reason = "toolUse"
             elif step == 1:
                 if compression != "full":
-                    assert '"path":"history.txt"' in context.system_prompt
-                    assert '"path":"logic.py"' in context.system_prompt and case.original in context.system_prompt
-                    assert "Diagnostic 045" not in context.system_prompt
+                    wire = _build_messages(context, model)
+                    assert [message["role"] for message in wire] == ["system", "user", "assistant", "tool", "tool", "tool"]
+                    assert [call["id"] for call in wire[2]["tool_calls"]] == ["read-0", "read-1", "read-2"]
+                    assert [message["tool_call_id"] for message in wire[3:]] == ["read-0", "read-1", "read-2"]
+                    assert "Read completed" in wire[4]["content"] and "Diagnostic 045" not in wire[4]["content"]
+                    assert wire[5]["content"] == case.source()
                 content = ToolCall(type="toolCall", id="fix", name="write", arguments={
                     "path": "logic.py", "content": f"def {case.signature}:\n    return {fixed}\n",
                 })
                 reason = "toolUse"
             else:
                 if compression != "full":
-                    assert f"    return {case.original}\\n" not in context.system_prompt
+                    wire = _build_messages(context, model)
+                    assert wire[5]["tool_call_id"] == "read-2" and case.source() not in wire[5]["content"]
+                    assert wire[-1]["tool_call_id"] == "fix"
                 content = TextContent(type="text", text="Capped delay using policy.py.")
         usage = Usage(input=9, output=3, cache_read=12, total_tokens=24)
         message = AssistantMessage(

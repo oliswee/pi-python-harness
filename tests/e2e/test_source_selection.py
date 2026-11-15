@@ -3,7 +3,7 @@ import json
 import pytest
 
 from pi_ai import get_model
-from pi_ai.types import AssistantMessage, EventDone, TextContent, ToolCall
+from pi_ai.types import AssistantMessage, EventDone, TextContent, ToolCall, ToolResultMessage
 
 from mini_nanobot import ContextPolicy, run
 
@@ -15,8 +15,8 @@ def reply(model, content, reason="stop"):
     return EventDone(type="done", reason=reason, message=message)
 
 
-@pytest.mark.parametrize("forged", [False, True])
-async def test_selector_verifies_reread_and_persisted_source(tmp_path, forged):
+@pytest.mark.parametrize("response", ["quote", "reference", "forged", "invalid_json"])
+async def test_selector_verifies_reread_and_persisted_source(tmp_path, response):
     workspace = tmp_path / "workspace"
     workspace.mkdir()
     (workspace / "billing.py").write_text(
@@ -39,9 +39,14 @@ async def test_selector_verifies_reread_and_persisted_source(tmp_path, forged):
         selections.append(payload)
         if len(selections) == 1:
             result = {"read_more": {"call_id": "source", "line_start": 211, "line_end": 211}}
+        elif response == "invalid_json":
+            yield reply(model, TextContent(type="text", text="unparseable output"))
+            return
+        elif response == "reference":
+            result = [{key: selection[key] for key in ("call_id", "line_start", "line_end")}]
         else:
             assert payload["sources"][0]["lines"] == [[211, quote]]
-            result = [{**selection, "quote": "MAX_CENTS = 999" if forged else quote}]
+            result = [{**selection, "quote": "MAX_CENTS = 999" if response == "forged" else quote}]
         payload = json.dumps(result)
         yield reply(model, TextContent(type="text", text=f"```json\n{payload}\n```"))
 
@@ -55,7 +60,9 @@ async def test_selector_verifies_reread_and_persisted_source(tmp_path, forged):
             [fact] = json.loads(ctx.system_prompt.splitlines()[-1])
             assert fact["quote"] == quote and fact["path"] == "billing.py"
             assert '"source_sha256":' in ctx.system_prompt
-            assert len(ctx.messages) == 1
+            assert len(ctx.messages) == 3
+            assert isinstance(ctx.messages[-1], ToolResultMessage)
+            assert ctx.messages[-1].tool_call_id == "source" and "Read completed" in ctx.messages[-1].content[0].text
             maximum = int(fact["quote"].split("=")[1])
             call = ToolCall(type="toolCall", id="fix", name="write", arguments={
                 "path": "invoice.py", "content": f"def discount(cents):\n    return min(cents, {maximum})\n",
@@ -73,10 +80,15 @@ async def test_selector_verifies_reread_and_persisted_source(tmp_path, forged):
     )
     journal = (tmp_path / "state" / "journal.jsonl").read_text(encoding="utf-8")
     assert len(selections) == 2
-    if forged:
+    if response in {"forged", "invalid_json"}:
         assert result.status == "context_limit" and len(calls) == 1
         assert "compaction_committed" not in journal
         assert invoice.read_text(encoding="utf-8") == "def discount(cents):\n    return cents\n"
+        trace = [json.loads(line) for line in result.trace_path.read_text(encoding="utf-8").splitlines()]
+        [blocked] = [event for event in trace if event["event_type"] == "context_blocked"]
+        assert blocked["error_category"] == (
+            "source_reference_rejected" if response == "forged" else "evidence_invalid_json"
+        )
     else:
         assert result.status == "ok" and result.text == "billing.py:211" and len(calls) == 3
         assert invoice.read_text(encoding="utf-8") == "def discount(cents):\n    return min(cents, 500)\n"

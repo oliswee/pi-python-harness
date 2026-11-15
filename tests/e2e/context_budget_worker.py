@@ -34,7 +34,8 @@ async def main():
             yield reply(model, read("north", "north.txt"), read("south", "south.txt"), reason="toolUse")
         else:
             assert "8181" in context.system_prompt and "eu-test" in context.system_prompt
-            assert len(context.messages) == 1
+            assert len(context.messages) == 4
+            assert [message.tool_call_id for message in context.messages[2:]] == ["north", "south"]
             yield reply(model, TextContent(type="text", text="8181 / eu-test"))
 
     async def summarize(model, context, options=None):

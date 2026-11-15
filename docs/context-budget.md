@@ -27,9 +27,9 @@ The default counts UTF-8 bytes of a normalized JSON request plus the framing all
 
 ## Verified context view
 
-Compaction replaces only a contiguous prefix of complete read-only tool turns in the provider's view. The original user message and every write or mixed turn remain in the request. The underlying Pi transcript and tool journal remain the source of recovery.
+Compaction affects only a contiguous prefix of complete read-only tool turns in the provider's view. The original user message and every write or mixed turn remain in the request. The underlying Pi transcript and tool journal remain the source of recovery.
 
-The compacted view includes up to eight recent completed read records and the current text of small, untruncated results within a shared 1 KiB budget. This preserves progress when one tool batch contains both bulky observations and the short file the agent needs to edit. A later write removes that file's old text from the compacted view.
+The compacted view retains the most recent read-only batch as paired assistant tool calls and tool results with their original call IDs. Each current, untruncated text result up to 384 bytes can remain within a shared 1 KiB budget. Larger results become status markers, and earlier read batches are represented by verified facts. A later write removes a superseded file's old text from the retained batch.
 
 Each fact rule selects one nonempty value by path and line prefix from a successful read result. The snapshot carries the exact value, path, call ID, and SHA-256 digest of the source text. Missing, ambiguous, oversized, or newer conflicting evidence blocks compaction. In the trusted workspace, recorded file identities detect subsequent writes through aliases such as hardlinks. A successful write with unknown identity invalidates prior read evidence conservatively. The original prompt retains the caller's operation constraints.
 
@@ -39,7 +39,7 @@ With no summarizer, the verified facts form an extractive summary. An optional `
 
 Set `ContextPolicy(evidence_selector=provider)` in place of `fact_rules` to admit source excerpts selected by a model. The selector receives the original task and a bounded preview of the latest successful text reads in the compactable prefix. It can request one more line range from an offered tool result. That lookup uses the captured tool output and adds no filesystem operation. Selectors and optional summary verification use tool-free requests subject to the same input and output budget.
 
-The runtime requires the exact quote, file path, call ID, inclusive line range, and a symbol present in the quote before computing the excerpt SHA-256. It checks for newer conflicting read or write evidence before activation and each reuse. Invalid proposals or evidence that exceeds the budget leave compaction uncommitted. Configure a timeout on a live provider, and use `read` with an explicit offset and limit when a source exceeds the file tool's output limit.
+The selector returns call IDs and inclusive line ranges. The runtime resolves these references to the exact source path and quote from captured tool results, then computes an excerpt SHA-256. It also accepts the older response format with a path, quote, and optional symbol, checking those fields against the captured source. It checks for newer conflicting evidence before activation and each reuse. Invalid proposals or evidence that exceeds the budget leave compaction uncommitted. The diagnostic trace records safe failure categories for invalid JSON, incomplete output, rejected references, and budget failures. Configure a timeout on a live provider, and use `read` with an explicit offset and limit when a source exceeds the file tool's output limit.
 
 ## Durability and invalidation
 
