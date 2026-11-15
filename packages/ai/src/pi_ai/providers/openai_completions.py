@@ -216,6 +216,13 @@ async def stream_simple(
                         output=getattr(u, "completion_tokens", 0) or 0,
                         total_tokens=getattr(u, "total_tokens", 0) or 0,
                     )
+                    if model.provider == "deepseek":
+                        cached = getattr(u, "prompt_cache_hit_tokens", None)
+                        if cached is None:
+                            cached = getattr(getattr(u, "prompt_tokens_details", None), "cached_tokens", None)
+                        if type(cached) is int and 0 <= cached <= usage.input:
+                            usage.cache_read = cached
+                            usage.input -= cached
                     # Check for reasoning tokens
                     details = getattr(u, "completion_tokens_details", None)
                     if details:

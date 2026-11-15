@@ -26,12 +26,16 @@ def test_deepseek_revocation_probe_checks_the_serialized_request(tmp_path, monke
 
     def handle(request):
         requests.append(request)
+        cache_fields = (
+            {"prompt_cache_hit_tokens": 12, "prompt_cache_miss_tokens": 8}
+            if len(requests) <= 4 else {"prompt_tokens_details": {"cached_tokens": 12}}
+        )
         messages = [
             {**chunk, "choices": [{
                 "index": 0, "delta": {"content": probe.RETAINED}, "finish_reason": None,
             }], "usage": None},
             {**chunk, "choices": [{"index": 0, "delta": {}, "finish_reason": "stop"}], "usage": {
-                "prompt_tokens": 20, "completion_tokens": 5, "total_tokens": 25,
+                "prompt_tokens": 20, "completion_tokens": 5, "total_tokens": 25, **cache_fields,
             }},
         ]
         stream = "".join(f"data: {json.dumps(message)}\n\n" for message in messages)
@@ -64,3 +68,4 @@ def test_deepseek_revocation_probe_checks_the_serialized_request(tmp_path, monke
     assert report["passed"]
     assert len(report["requests"]) == 8
     assert all(row["usage"]["total_tokens"] == 25 for row in report["requests"])
+    assert all(row["usage"]["input"] == 8 and row["usage"]["cache_read"] == 12 for row in report["requests"])

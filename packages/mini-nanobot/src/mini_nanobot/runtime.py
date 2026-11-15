@@ -40,6 +40,7 @@ async def run(
     tool_policy: ToolPolicy | None = None,
     memory: MemoryScope | None = None,
     context_policy: ContextPolicy | None = None,
+    system_prompt: str = "",
 ) -> RunResult:
     """Run one prompt, reopening the same logical run when state_dir is supplied."""
     workspace = workspace.resolve(strict=True)
@@ -50,7 +51,7 @@ async def run(
 
     policy = tool_policy if tool_policy is not None else ToolPolicy()
     if state_dir is None:
-        return await _run(prompt, workspace, trace_dir, model, stream_fn, policy, memory, context_policy)
+        return await _run(prompt, workspace, trace_dir, model, stream_fn, policy, memory, context_policy, system_prompt)
     state_dir = state_dir.resolve()
     if state_dir.is_relative_to(workspace):
         raise ValueError("Durable state directory must be outside the tool workspace")
@@ -59,8 +60,12 @@ async def run(
         "memory": memory.binding() if memory is not None else None,
         "context_policy": context_policy.binding() if context_policy is not None else None,
     }
+    if system_prompt:
+        request["system_prompt"] = digest(system_prompt)
     with RunJournal.open(state_dir, request, tool_policy_version=TOOL_POLICY_VERSION) as journal:
-        return await _run(prompt, workspace, trace_dir, model, stream_fn, policy, memory, context_policy, journal)
+        return await _run(
+            prompt, workspace, trace_dir, model, stream_fn, policy, memory, context_policy, system_prompt, journal,
+        )
 
 
 async def _run(
@@ -72,6 +77,7 @@ async def _run(
     policy: ToolPolicy,
     memory: MemoryScope | None,
     context_policy: ContextPolicy | None,
+    system_prompt: str,
     journal: RunJournal | None = None,
 ) -> RunResult:
     trace = RunTrace(trace_dir, model.id, journal.run_id if journal else None)
@@ -101,6 +107,7 @@ async def _run(
         tool_error_max_bytes=4096,
     ))
     agent.set_model(model)
+    agent.set_system_prompt(system_prompt)
     agent.set_tools(tools.registered())
     agent.subscribe(trace.observe)
 

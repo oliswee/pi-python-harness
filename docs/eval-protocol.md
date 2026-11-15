@@ -51,3 +51,13 @@ uv run --locked python benchmarks/live_revocation.py --model <registered-model-i
 ```
 
 The probe checks retained and revoked synthetic canaries in each actual outbound context, disables provider tools, and records response flags and provider usage. The evidence addresses the request assembly boundary. It does not establish provider-side deletion.
+
+## DeepSeek compaction and cache comparison
+
+`benchmarks/live_context.py` compares full context, fixed fact rules, and model-selected source excerpts with a stable system prompt first. It adds a fourth condition that moves the same changing metadata to the start of the system message. Each condition uses a fresh local workspace and the same task, model, and response reserve. It rotates the order across cases. Server cache state is observable through returned usage but is not controlled by the runner.
+
+```powershell
+uv run --locked python benchmarks/live_context.py --trials 1 --output live-context
+```
+
+Set `DEEPSEEK_API_KEY` in the process environment. The suite runs billing, retry, and inventory fixtures. Use `--case retry` for a smaller run. One trial supports up to eight model calls for each condition and case. The verifier checks file scope, the source citation, and three arithmetic cases with a restricted Python expression. It records total provider token usage including selector requests, cache hit ratio for agent requests with cache telemetry, time to first streamed text or tool output, wall time, and repair outcome. [DeepSeek cache fields](https://api-docs.deepseek.com/api/create-chat-completion/)
