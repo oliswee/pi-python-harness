@@ -1,11 +1,12 @@
 import importlib
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from pi_ai import get_model
-from pi_ai.types import AssistantMessage, EventDone, TextContent, ToolCall, Usage
+from pi_ai.types import AssistantMessage, EventDone, EventError, TextContent, ToolCall, Usage
 
 
 @pytest.mark.parametrize(("case_name", "fixed"), [
@@ -72,3 +73,28 @@ async def test_repair_comparison_runs_each_arm_and_verifies_preconditions(
     assert result["cache_hit_ratio"] == pytest.approx(12 / 21)
     assert result["total_tokens"] == (5 + selection_calls) * 24
     assert not bench.verify_source("def retry_delay(base, attempt):\n    return __import__('os')\n", case)
+
+
+async def test_comparison_reports_http_status_and_stops_on_first_credential_failure(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[2] / "benchmarks"))
+    bench = importlib.import_module("live_context")
+    model = get_model("anthropic", "claude-3-5-sonnet-20241022")
+    calls = 0
+
+    async def rejected(model, context, options):
+        nonlocal calls
+        calls += 1
+        message = AssistantMessage(
+            content=[], api=model.api, provider=model.provider, model=model.id, timestamp=0, stop_reason="error",
+            error_message="Error code: 401 - authentication denied for mock-secret",
+        )
+        yield EventError(type="error", reason="error", error=message)
+
+    args = SimpleNamespace(output=tmp_path / "comparison", trials=1, case=None)
+    assert await bench.compare(args, model, rejected) == 1
+    assert calls == 1
+    raw = (args.output / "report.json").read_text(encoding="utf-8")
+    assert "mock-secret" not in raw
+    report = json.loads(raw)
+    assert report["stopped_on_provider_http_status"] == 401
+    assert report["results"][0]["calls"][0]["provider_http_status"] == 401

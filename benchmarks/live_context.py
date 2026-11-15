@@ -7,6 +7,7 @@ import ast
 import asyncio
 import json
 import os
+import re
 from contextlib import aclosing
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,7 +15,9 @@ from statistics import median
 from time import perf_counter
 
 from pi_ai import stream_simple
-from pi_ai.types import EventDone, EventTextDelta, EventThinkingDelta, EventToolCallStart, Model, SimpleStreamOptions
+from pi_ai.types import (
+    EventDone, EventError, EventTextDelta, EventThinkingDelta, EventToolCallStart, Model, SimpleStreamOptions,
+)
 
 from mini_nanobot import ContextPolicy, FactRule, MemoryScope, MemoryStore, run
 
@@ -37,6 +40,7 @@ SYSTEM_PROMPT = (
 )
 WINDOW, RESERVE = 7000, 512
 MAX_CALLS = 8
+_HTTP_STATUS = re.compile(r"^Error code: ([45]\d\d)\b")
 
 
 @dataclass(frozen=True)
@@ -165,6 +169,17 @@ async def run_case(case: Repair, model: Model, provider, directory: Path, compre
                         event, (EventTextDelta, EventThinkingDelta, EventToolCallStart),
                     ):
                         row["first_delta_ms"] = round((perf_counter() - started) * 1000, 3)
+                    if isinstance(event, EventError):
+                        row["provider_error"] = event.reason
+                        failure = event.error.error_message or ""
+                        match = _HTTP_STATUS.match(failure)
+                        if match:
+                            row["provider_http_status"] = int(match[1])
+                        if row.get("provider_http_status") in {400, 422}:
+                            row["provider_request_fields"] = [
+                                field for field in ("messages", "tools", "thinking", "temperature", "max_tokens", "model")
+                                if field in failure.casefold()
+                            ]
                     if isinstance(event, EventDone):
                         usage = event.message.usage
                         if usage.total_tokens > 0:
@@ -237,8 +252,19 @@ async def compare(args, model, provider) -> int:
                 target = output / f"{trial + 1:02d}-{name}-{compression}-{layout}"
                 record = await run_case(CASES[name], model, provider, target, compression, layout)
                 report["results"].append({"trial": trial + 1, **record})
-                write_json(output / "report.json", report)
                 print(f"{name} {compression}/{layout}: {record['status']}, verified={record['repair_verified']}", flush=True)
+                calls = record["calls"]
+                final_call = calls[-1] if calls else {}
+                http_status = final_call.get("provider_http_status")
+                first_call_rejected = len(report["results"]) == len(calls) == 1 and "provider_error" in final_call
+                stop = http_status in {401, 402, 403, 404} or first_call_rejected
+                if stop:
+                    report["stopped_on_provider_http_status"] = http_status
+                write_json(output / "report.json", report)
+                if stop:
+                    print(f"Provider refused the comparison (HTTP status: {http_status}).", flush=True)
+                    print(f"Report: {output / 'report.json'}", flush=True)
+                    return 1
     print(f"Report: {output / 'report.json'}", flush=True)
     return int(not all(row["repair_verified"] for row in report["results"]))
 
