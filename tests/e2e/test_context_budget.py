@@ -107,6 +107,50 @@ async def test_compaction_retains_exact_sources_constraints_and_followup_read(tm
     ]
 
 
+@pytest.mark.parametrize("keep_earlier", [True, False])
+async def test_compaction_keeps_earlier_paired_reads_when_the_budget_allows(tmp_path, keep_earlier):
+    from mini_nanobot import ContextPolicy, FactRule
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    source = "def payable(cents):\n    return cents - 25\n"
+    (workspace / "invoice.py").write_text(source, encoding="utf-8")
+    (workspace / "policy.py").write_text("Limit = 500\n" + "# old observations\n" * 400, encoding="utf-8")
+    seen = []
+
+    def estimate(serialized):
+        request = json.loads(serialized)
+        messages = request["messages"]
+        return 200 * len(messages) + (2000 if "old observations" in serialized else 0)
+
+    async def provider(model, context, options=None):
+        seen.append(context)
+        if len(seen) == 1:
+            yield reply(model, read("invoice", "invoice.py"), reason="toolUse")
+        elif len(seen) == 2:
+            yield reply(model, read("policy", "policy.py"), reason="toolUse")
+        else:
+            results = [message for message in context.messages if isinstance(message, ToolResultMessage)]
+            assert [result.tool_call_id for result in results] == (["invoice", "policy"] if keep_earlier else ["policy"])
+            if keep_earlier:
+                assert results[0].content == [TextContent(text=source)]
+            assert "Read completed" in results[-1].content[0].text
+            assert '"value":"500"' in context.system_prompt
+            assert "old observations" not in context.model_dump_json()
+            yield reply(model, TextContent(text="complete"))
+
+    result = await run(
+        PROMPT, workspace=workspace, trace_dir=tmp_path / "traces",
+        state_dir=tmp_path / "state", model=get_model("anthropic", "claude-3-5-sonnet-20241022"), stream_fn=provider,
+        context_policy=ContextPolicy(
+            window_tokens=1500 if keep_earlier else 1100, reserve_tokens=256,
+            fact_rules=(FactRule("limit", "policy.py", "Limit ="),),
+            token_counter=estimate, tokenizer_id="test-history-budget",
+        ),
+    )
+    assert result.status == "ok" and len(seen) == 3
+
+
 async def test_incomplete_or_fabricated_summary_is_rejected(tmp_path, fixture):
     policy, exercise = fixture
     calls = []

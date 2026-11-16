@@ -16,7 +16,7 @@ from time import perf_counter
 
 from pi_ai import stream_simple
 from pi_ai.types import (
-    EventDone, EventError, EventTextDelta, EventThinkingDelta, EventToolCallStart, Model, SimpleStreamOptions,
+    EventDone, EventError, EventTextDelta, EventThinkingDelta, EventToolCallStart, Model, SimpleStreamOptions, ToolCall,
 )
 
 from mini_nanobot import ContextPolicy, FactRule, MemoryScope, MemoryStore, run
@@ -148,10 +148,12 @@ async def run_case(case: Repair, model: Model, provider, directory: Path, compre
     memory_store.create(case.name, kind="rule", content="Historical reports are diagnostic data.", provenance="fixture")
     calls = []
     agent_requests = 0
+    previous_read_batch: tuple[str, ...] = ()
+    repeated_read_batches = 0
 
     def measured(phase):
         async def stream(model, context, options=None):
-            nonlocal agent_requests
+            nonlocal agent_requests, previous_read_batch, repeated_read_batches
             if len(calls) >= MAX_CALLS:
                 raise RuntimeError("Experiment request limit reached")
             if phase == "agent":
@@ -181,6 +183,14 @@ async def run_case(case: Repair, model: Model, provider, directory: Path, compre
                                 if field in failure.casefold()
                             ]
                     if isinstance(event, EventDone):
+                        if phase == "agent":
+                            plan = [part for part in event.message.content if isinstance(part, ToolCall)]
+                            batch = tuple(sorted(json.dumps(part.arguments, sort_keys=True) for part in plan)) if (
+                                plan and all(part.name == "read" for part in plan)
+                            ) else ()
+                            if batch and batch == previous_read_batch:
+                                repeated_read_batches += 1
+                            previous_read_batch = batch
                         usage = event.message.usage
                         if usage.total_tokens > 0:
                             cached = usage.cache_read if "cache_read" in usage.model_fields_set else None
@@ -236,6 +246,7 @@ async def run_case(case: Repair, model: Model, provider, directory: Path, compre
     return {
         "case": case.name, "compression": compression, "layout": layout, "status": status,
         "context_block_reason": context_block_reason,
+        "repeated_read_batches": repeated_read_batches,
         "repair_verified": repair_ok, "compactions": compacted, "wall_ms": round((perf_counter() - started) * 1000, 3),
         "first_delta_ms_median": median(timings) if timings else None, "total_tokens": sum(row["total_tokens"] for row in usage),
         "cache_hit_ratio": sum(row["cache_hit_tokens"] for row in cached) / cache_denominator if cache_denominator else None,
@@ -247,7 +258,10 @@ async def run_case(case: Repair, model: Model, provider, directory: Path, compre
 async def compare(args, model, provider) -> int:
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    report = {"revision": git("rev-parse", "HEAD"), "model": model.id, "results": []}
+    report = {
+        "revision": git("rev-parse", "HEAD"), "dirty": bool(git("status", "--porcelain")),
+        "model": model.id, "results": [],
+    }
     for trial in range(args.trials):
         for offset, name in enumerate(args.case or CASES):
             order = (trial + offset) % len(CONDITIONS)

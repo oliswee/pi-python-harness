@@ -84,6 +84,7 @@ async def test_repair_comparison_runs_each_arm_and_verifies_preconditions(
     assert result["compactions"] == int(compression != "full")
     assert len(finished) == 3 and selection_calls == int(compression == "selected")
     assert result["cache_hit_ratio"] == pytest.approx(12 / 21)
+    assert result["repeated_read_batches"] == 0
     assert result["total_tokens"] == (3 + selection_calls) * 24
     assert not bench.verify_source("def retry_delay(base, attempt):\n    return __import__('os')\n", case)
 
@@ -111,3 +112,28 @@ async def test_comparison_reports_http_status_and_stops_on_first_credential_fail
     report = json.loads(raw)
     assert report["stopped_on_provider_http_status"] == 401
     assert report["results"][0]["calls"][0]["provider_http_status"] == 401
+    assert type(report["dirty"]) is bool
+
+
+async def test_comparison_counts_repeated_read_plans_even_when_call_ids_change(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(Path(__file__).resolve().parents[2] / "benchmarks"))
+    bench = importlib.import_module("live_context")
+    model = get_model("anthropic", "claude-3-5-sonnet-20241022")
+    calls = 0
+
+    async def repeats(model, context, options):
+        nonlocal calls
+        calls += 1
+        paths = ["policy.py", "logic.py"]
+        if calls % 2:
+            paths.reverse()
+        message = AssistantMessage(
+            content=[ToolCall(type="toolCall", id=f"read-{calls}-{index}", name="read", arguments={"path": path})
+                     for index, path in enumerate(paths)],
+            api=model.api, provider=model.provider, model=model.id, timestamp=0, stop_reason="toolUse",
+        )
+        yield EventDone(type="done", reason="toolUse", message=message)
+
+    result = await bench.run_case(bench.CASES["retry"], model, repeats, tmp_path / "trial", "full", "stable-first")
+    assert calls == bench.MAX_CALLS and result["status"] == "error"
+    assert result["repeated_read_batches"] == calls - 1
